@@ -1,7 +1,7 @@
 -- Database for Qat ERP System
 
-CREATE DATABASE IF NOT EXISTS qat_erp;
-USE qat_erp;
+CREATE DATABASE IF NOT EXISTS qat;
+USE qat;
 
 -- 1. Qat Types (Types of Jamam, Sudur, Qatal)
 CREATE TABLE IF NOT EXISTS qat_types (
