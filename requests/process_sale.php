@@ -2,6 +2,7 @@
 require_once '../config/db.php';
 require_once '../includes/Autoloader.php';
 require_once '../includes/error_page.php';
+require_once '../includes/require_auth.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -9,16 +10,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $purchaseRepo = new PurchaseRepository($pdo);
         $customerRepo = new CustomerRepository($pdo);
         $leftoverRepo = new LeftoverRepository($pdo);
-        $service = new SaleService($repo, $purchaseRepo, $customerRepo, $leftoverRepo);
+        $unitSalesService = new UnitSalesService($purchaseRepo, $leftoverRepo, $repo);
+        $service = new SaleService($repo, $purchaseRepo, $customerRepo, $leftoverRepo, $unitSalesService);
 
         $data = [
             'sale_date' => $_POST['sale_date'],
             'customer_id' => !empty($_POST['customer_id']) ? $_POST['customer_id'] : null,
             'qat_type_id' => $_POST['qat_type_id'],
+            'unit_type' => $_POST['unit_type'] ?? 'weight',
             'purchase_id' => !empty($_POST['purchase_id']) ? $_POST['purchase_id'] : null,
             'leftover_id' => !empty($_POST['leftover_id']) ? $_POST['leftover_id'] : null,
             'qat_status' => !empty($_POST['qat_status']) ? $_POST['qat_status'] : 'Tari',
-            'weight_grams' => (float)$_POST['weight_grams'],
+            'weight_grams' => (float)($_POST['weight_grams'] ?? 0),
+            'quantity_units' => (int)($_POST['quantity_units'] ?? 0),
             'price' => (float)$_POST['price'],
             'payment_method' => $_POST['payment_method'],
             'transfer_sender' => !empty($_POST['transfer_sender']) ? $_POST['transfer_sender'] : null,
@@ -45,6 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($errorCode === 'InventoryExceeded') {
             showErrorPage("عذراً، الكمية غير متوفرة", "لقد طلبت كمية أكبر من المخزون المتاح لهذا المورد.", "Available: {$parts[1]}kg <br> Requested: {$parts[2]}kg");
+        } elseif ($errorCode === 'UnitSalesExceeded') {
+            showErrorPage("عذراً، العدد غير متوفر", "لقد طلبت عدداً أكبر من المخزون المتاح لهذا المورد.", "Available: {$parts[1]} <br> Requested: {$parts[2]}");
         } elseif ($errorCode === 'LeftoverExceeded') {
             showErrorPage("عذراً، الكمية غير متوفرة (بقايا)", "الكمية المطلوبة من البقايا غير متوفرة.", "Available: {$parts[1]}kg <br> Requested: {$parts[2]}kg");
         } elseif ($errorCode === 'CreditLimitExceeded') {

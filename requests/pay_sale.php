@@ -1,5 +1,6 @@
 <?php
 require '../config/db.php';
+require_once '../includes/require_auth.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $sale_id = $_POST['sale_id'];

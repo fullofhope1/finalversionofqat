@@ -19,13 +19,46 @@ class LeftoverRepository extends BaseRepository
         if ($lock) {
             $sql .= " FOR UPDATE";
         }
-        return $this->fetchColumn($sql, [$id]) ?: 0;
+        return (float)$this->fetchColumn($sql, [$id]) ?: 0.0;
+    }
+
+    public function getUnits($id, $lock = false)
+    {
+        $sql = "SELECT quantity_units FROM leftovers WHERE id = ?";
+        if ($lock) {
+            $sql .= " FOR UPDATE";
+        }
+        return (int)$this->fetchColumn($sql, [$id]) ?: 0;
+    }
+
+    public function getTransferredLeftovers($date = null)
+    {
+        $date = $date ?: date('Y-m-d');
+        $sql = "SELECT l.*, t.name as type_name, prov.name as provider_name 
+                FROM leftovers l 
+                JOIN qat_types t ON l.qat_type_id = t.id 
+                LEFT JOIN purchases p ON l.purchase_id = p.id
+                LEFT JOIN providers prov ON p.provider_id = prov.id
+                WHERE l.status = 'Transferred_Next_Day' AND l.sale_date = ?
+                ORDER BY l.source_date DESC";
+        return $this->fetchAll($sql, [$date]);
+    }
+
+    public function getMomsiStock()
+    {
+        $sql = "SELECT p.*, t.name as type_name, prov.name as provider_name 
+                FROM purchases p 
+                JOIN qat_types t ON p.qat_type_id = t.id 
+                LEFT JOIN providers prov ON p.provider_id = prov.id
+                WHERE p.status = 'Momsi'
+                ORDER BY p.purchase_date DESC";
+        return $this->fetchAll($sql);
     }
 
     public function create(array $data)
     {
-        $sql = "INSERT INTO leftovers (source_date, purchase_id, qat_type_id, weight_kg, status, decision_date, sale_date, notes) 
-                VALUES (:source_date, :purchase_id, :qat_type_id, :weight_kg, :status, :decision_date, :sale_date, :notes)";
+        $sql = "INSERT INTO leftovers (source_date, purchase_id, qat_type_id, weight_kg, unit_type, quantity_units, status, decision_date, sale_date, notes) 
+                VALUES (:source_date, :purchase_id, :qat_type_id, :weight_kg, :unit_type, :quantity_units, :status, :decision_date, :sale_date, :notes)";
         return $this->execute($sql, $data);
     }
 }

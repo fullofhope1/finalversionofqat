@@ -17,12 +17,12 @@ class PurchaseRepository extends BaseRepository
     {
         $sql = "INSERT INTO purchases (
             purchase_date, provider_id, qat_type_id, source_weight_grams, 
-            quantity_kg, price_per_kilo, agreed_price, is_received, 
-            status, media_path, created_by
+            quantity_kg, price_per_kilo, agreed_price, unit_type, source_units, 
+            price_per_unit, received_units, is_received, status, media_path, created_by
         ) VALUES (
             :purchase_date, :provider_id, :qat_type_id, :source_weight_grams, 
-            :quantity_kg, :price_per_kilo, :agreed_price, :is_received, 
-            :status, :media_path, :created_by
+            :quantity_kg, :price_per_kilo, :agreed_price, :unit_type, :source_units, 
+            :price_per_unit, :received_units, :is_received, :status, :media_path, :created_by
         )";
         return $this->execute($sql, $data);
     }
@@ -89,6 +89,15 @@ class PurchaseRepository extends BaseRepository
             $sql .= " FOR UPDATE";
         }
         return $this->fetchColumn($sql, [$id]) ?: 0;
+    }
+
+    public function getStockUnits($id, $lock = false)
+    {
+        $sql = "SELECT received_units FROM purchases WHERE id = ?";
+        if ($lock) {
+            $sql .= " FOR UPDATE";
+        }
+        return (int)$this->fetchColumn($sql, [$id]) ?: 0;
     }
 
     public function recordReceptionLoss($purchaseId, $typeId, $weight, $date)

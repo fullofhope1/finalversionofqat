@@ -1,8 +1,7 @@
 <?php
 require_once '../config/db.php';
 require_once '../includes/Autoloader.php';
-
-session_start();
+require_once '../includes/require_auth.php';
 
 $debtRepo = new DebtRepository($pdo);
 $service = new DebtService($debtRepo);

@@ -13,7 +13,8 @@ $today = date('Y-m-d');
 $purchaseRepo = new PurchaseRepository($pdo);
 $saleRepo = new SaleRepository($pdo);
 $leftoverRepo = new LeftoverRepository($pdo);
-$saleService = new SaleService($saleRepo, $purchaseRepo, $customerRepo, $leftoverRepo);
+$unitSalesService = new UnitSalesService($purchaseRepo, $leftoverRepo, $saleRepo);
+$saleService = new SaleService($saleRepo, $purchaseRepo, $customerRepo, $leftoverRepo, $unitSalesService);
 
 $todaysStock = $saleService->getTodaysStock($today);
 
@@ -146,6 +147,8 @@ $jsonCustomers = json_encode($customers);
         <input type="hidden" name="purchase_id" id="i_pid">
         <input type="hidden" name="customer_id" id="i_cust">
         <input type="hidden" name="weight_grams" id="i_weight">
+        <input type="hidden" name="quantity_units" id="i_units">
+        <input type="hidden" name="unit_type" id="i_utype">
         <input type="hidden" name="price" id="i_price">
         <input type="hidden" name="payment_method" id="i_method">
 
@@ -253,6 +256,18 @@ $jsonCustomers = json_encode($customers);
             <div class="mt-4"><button type="button" class="btn btn-secondary" onclick="backStep(3)">عودة</button></div>
         </div>
 
+        <!-- STEP 4U: Units (Count-based) - dynamically populated -->
+        <div id="step4u" class="step-container">
+            <h3>كم <span id="unitLabel">حبة</span>؟</h3>
+            <p id="unitMaxLabel" class="text-muted small"></p>
+            <div class="grid-container" id="unitBtnsGrid"></div>
+            <div id="manualUnits" class="d-none mt-4 w-25 mx-auto">
+                <input type="number" id="m_units_val" class="form-control p-3 text-center fs-4" placeholder="العدد" min="1">
+                <button type="button" class="btn btn-primary w-100 mt-3 p-2" onclick="confirmManualUnits()">تأكيد العدد</button>
+            </div>
+            <div class="mt-4"><button type="button" class="btn btn-secondary" onclick="backStep(3)">عودة</button></div>
+        </div>
+
         <!-- STEP 5: Price -->
         <div id="step5" class="step-container">
             <h3>السعر</h3>
@@ -356,12 +371,54 @@ $jsonCustomers = json_encode($customers);
         } else if (step === 2) { // Provider
             document.getElementById('i_pid').value = data.id;
             document.getElementById('s_rawi').innerText = data.name;
+            document.getElementById('i_utype').value = data.unit_type;
+            window._selectedRemainingUnits = data.remaining_units || 10;
+
+            goTo(3); // Go to Customer selection
+            return;
         } else if (step === 3) { // Customer
             document.getElementById('i_cust').value = data.id;
             document.getElementById('s_cust').innerText = data.name;
-        } else if (step === 4) { // Weight
+
+            // Route to Weight or Units based on unit_type from Step 2
+            const utype = document.getElementById('i_utype').value;
+            if (utype === 'weight') {
+                goTo(4);
+            } else {
+                // Build dynamic unit buttons
+                const maxU = window._selectedRemainingUnits || 10;
+                const grid = document.getElementById('unitBtnsGrid');
+                grid.innerHTML = '';
+                const btnCount = Math.min(maxU, 8);
+                for (let i = 1; i <= btnCount; i++) {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'circle-btn btn-weight';
+                    b.textContent = i;
+                    b.onclick = () => nextStep(4.5, i);
+                    grid.appendChild(b);
+                }
+                const manBtn = document.createElement('button');
+                manBtn.type = 'button';
+                manBtn.className = 'circle-btn bg-dark text-white';
+                manBtn.textContent = 'يدوي';
+                manBtn.onclick = () => document.getElementById('manualUnits').classList.remove('d-none');
+                grid.appendChild(manBtn);
+                document.getElementById('unitLabel').innerText = utype;
+                document.getElementById('unitMaxLabel').innerText = 'المتاح: ' + maxU + ' ' + utype;
+                goTo('4u');
+            }
+            return;
+        } else if (step === 4) { // Weight (Finalizing Weight)
             document.getElementById('i_weight').value = data;
             document.getElementById('s_weight').innerText = data + 'g';
+            goTo(5);
+            return;
+        } else if (step === 4.5) { // Units (Finalizing Units)
+            document.getElementById('i_units').value = data;
+            document.getElementById('s_weight').innerText = data + ' (' + document.getElementById('i_utype').value + ')';
+            goTo(5);
+            return;
         } else if (step === 5) { // Price
             document.getElementById('i_price').value = data;
             document.getElementById('s_price').innerText = data;
@@ -409,6 +466,15 @@ $jsonCustomers = json_encode($customers);
         if (method) document.getElementById('i_method').value = method;
         if (debtType) document.getElementById('i_dtype').value = debtType;
 
+        // Validation for Debt
+        const m = document.getElementById('i_method').value;
+        const c = document.getElementById('i_cust').value;
+        if (m === 'Debt' && !c) {
+            alert('يرجى اختيار الزبون أولاً لعملية الآجل');
+            goTo(3);
+            return;
+        }
+
         document.getElementById('saleForm').submit();
     }
 
@@ -430,33 +496,44 @@ $jsonCustomers = json_encode($customers);
     function populateProviders(typeId) {
         const grid = document.getElementById('providerGrid');
         grid.innerHTML = '';
-        // Filter by Type AND Remaining Stock > 0
-        // User Requirement: "even if I have no think... there must be a message"
-        // So we show them but maybe disabled or alert?
-        // User said: "only types... which has been measured is the available"
-        // So we strictly filter?
-        // Let's filter strictly only those with purchases.
-        const providers = stockData.filter(i => i.qat_type_id == typeId);
+
+        // --- Admin-Only Technique Restriction ---
+        const userRole = '<?= $_SESSION['role'] ?>';
+        const isAdmin = ['admin', 'super_admin'].includes(userRole);
+
+        const providers = stockData.filter(i => {
+            if (i.qat_type_id != typeId) return false;
+            // Unit-based products are now visible to all staff
+            return true;
+        });
 
         if (providers.length === 0) {
-            grid.innerHTML = '<div class="alert alert-warning w-100">لا يوجد منتج لهذا النوع اليوم (لا يوجد مخزون)</div>';
-            // REMOVED Fallback Button as per strict requirement
+            grid.innerHTML = '<div class="alert alert-warning w-100">لا يوجد مخزون متاح لهذا النوع اليوم</div>';
         } else {
             providers.forEach(p => {
                 const btn = document.createElement('button');
                 btn.className = 'circle-btn btn-provider';
 
                 // Inventory Check
-                const remaining = parseFloat(p.remaining_kg);
+                let remaining = 0;
+                let unitText = '';
+                if (p.unit_type === 'weight') {
+                    remaining = parseFloat(p.remaining_kg);
+                    unitText = 'kg';
+                } else {
+                    remaining = parseInt(p.remaining_units);
+                    unitText = p.unit_type;
+                }
+
                 const isSoldOut = remaining <= 0;
 
                 let label = p.provider_name;
                 if (isSoldOut) {
                     label += '<br><small class="text-danger">(نفذ)</small>';
                     btn.style.opacity = '0.6';
-                    btn.disabled = true; // Prevent selection
+                    btn.disabled = true;
                 } else {
-                    label += `<br><small>${remaining}kg</small>`;
+                    label += `<br><small>${remaining}${unitText}</small>`;
                 }
 
                 btn.innerHTML = label;
@@ -465,7 +542,9 @@ $jsonCustomers = json_encode($customers);
                 if (!isSoldOut) {
                     btn.onclick = () => nextStep(2, {
                         id: p.id,
-                        name: p.provider_name
+                        name: p.provider_name,
+                        unit_type: p.unit_type,
+                        remaining_units: p.remaining_units || 0
                     });
                 }
 
@@ -492,6 +571,15 @@ $jsonCustomers = json_encode($customers);
             nextStep(4, grams);
         } else {
             alert('الرجاء إدخال الوزن');
+        }
+    }
+
+    function confirmManualUnits() {
+        const units = document.getElementById('m_units_val').value;
+        if (units > 0) {
+            nextStep(4.5, units);
+        } else {
+            alert('الرجاء إدخال العدد');
         }
     }
 

@@ -1,62 +1,24 @@
 <?php
-require 'config/db.php';
+require_once 'config/db.php';
+require_once 'includes/Autoloader.php';
 include 'includes/header.php';
 
-$customers = $pdo->query("SELECT * FROM customers ORDER BY name ASC")->fetchAll();
-$types = $pdo->query("SELECT * FROM qat_types WHERE is_deleted = 0")->fetchAll();
+// Initialize Repositories
+$customerRepo = new CustomerRepository($pdo);
+$leftoverRepo = new LeftoverRepository($pdo);
+$purchaseRepo = new PurchaseRepository($pdo);
+$saleRepo = new SaleRepository($pdo);
+$productRepo = new ProductRepository($pdo);
 
-// 1. Fetch Manual Leftovers (Items explicitly transferred to leftovers yesterday)
-$today = date('Y-m-d');
-$sqlL = "SELECT l.id as lid, l.weight_kg, l.source_date, l.sale_date, t.name as type_name, t.id as type_id, 'manual' as type, prov.name as provider_name 
-         FROM leftovers l 
-         JOIN qat_types t ON l.qat_type_id = t.id 
-         LEFT JOIN purchases p ON l.purchase_id = p.id
-         LEFT JOIN providers prov ON p.provider_id = prov.id
-         WHERE l.status = 'Transferred_Next_Day'
-         ORDER BY l.source_date DESC";
-$stmtL = $pdo->prepare($sqlL);
-$stmtL->execute([]);
-$manualLeftovers = $stmtL->fetchAll();
+// Initialize Services
+$unitSalesService = new UnitSalesService($purchaseRepo, $leftoverRepo, $saleRepo);
+$saleService = new SaleService($saleRepo, $purchaseRepo, $customerRepo, $leftoverRepo, $unitSalesService);
 
-// 2. Fetch Momsi Stock (from purchases table) - only for today's business date
-$sqlM = "SELECT p.id as pid, p.quantity_kg as weight_kg, p.purchase_date as source_date, t.name as type_name, t.id as type_id, 'momsi' as type, prov.name as provider_name 
-         FROM purchases p 
-         JOIN qat_types t ON p.qat_type_id = t.id 
-         LEFT JOIN providers prov ON p.provider_id = prov.id
-         WHERE p.status = 'Momsi'
-         ORDER BY p.purchase_date DESC";
-$stmtM = $pdo->prepare($sqlM);
-$stmtM->execute([]);
-$momsiStock = $stmtM->fetchAll();
+$customers = $customerRepo->getAllActive();
+$types = $productRepo->getAllActive();
 
-
-// Combine and calculate remaining
-$leftoverStocks = [];
-foreach ($manualLeftovers as $l) {
-    $stmt = $pdo->prepare("SELECT SUM(weight_kg) FROM sales WHERE leftover_id = ?");
-    $stmt->execute([$l['lid']]);
-    $sold = $stmt->fetchColumn() ?: 0;
-    $rem = $l['weight_kg'] - $sold;
-    if ($rem > 0.001) {
-        $l['remaining_kg'] = round($rem, 3);
-        $l['id'] = $l['lid'];
-        $l['provider_name'] = $l['provider_name'] ?: 'بقايا عامة (General)';
-        $leftoverStocks[] = $l;
-    }
-}
-
-foreach ($momsiStock as $m) {
-    $stmt = $pdo->prepare("SELECT SUM(weight_kg) FROM sales WHERE purchase_id = ?");
-    $stmt->execute([$m['pid']]);
-    $sold = $stmt->fetchColumn() ?: 0;
-    $rem = $m['weight_kg'] - $sold;
-    if ($rem > 0.001) {
-        $m['remaining_kg'] = round($rem, 3);
-        $m['id'] = $m['pid'];
-        $m['provider_name'] = $m['provider_name'] ?: 'بقايا عامة (General)';
-        $leftoverStocks[] = $m;
-    }
-}
+// Unified stock calculation via Service
+$leftoverStocks = $saleService->getAvailableLeftoverStock();
 
 $jsonStocks = json_encode($leftoverStocks);
 $jsonCustomers = json_encode($customers);
@@ -165,7 +127,7 @@ $jsonCustomers = json_encode($customers);
                 <span>النوع: <b id="s_type">-</b></span>
                 <span>الرعوي: <b id="s_rawi">-</b></span>
                 <span>الزبون: <b id="s_cust">-</b></span>
-                <span>الوزن: <b id="s_weight">-</b></span>
+                <span>الكمية: <b id="s_weight">-</b></span>
                 <span>السعر: <b id="s_price">-</b></span>
             </div>
 
@@ -183,7 +145,9 @@ $jsonCustomers = json_encode($customers);
         <input type="hidden" name="qat_status" id="i_status" value="">
         <input type="hidden" name="source_page" value="leftovers">
         <input type="hidden" name="customer_id" id="i_cust">
-        <input type="hidden" name="weight_grams" id="i_weight">
+        <input type="hidden" name="weight_grams" id="i_weight" value="0">
+        <input type="hidden" name="quantity_units" id="i_units" value="0">
+        <input type="hidden" name="unit_type" id="i_unit_type" value="weight">
         <input type="hidden" name="price" id="i_price">
         <input type="hidden" name="payment_method" id="i_method">
         <input type="hidden" name="debt_type" id="i_dtype">
@@ -233,15 +197,30 @@ $jsonCustomers = json_encode($customers);
             <div class="mt-4"><button type="button" class="btn btn-secondary" onclick="backStep(2)">عودة</button></div>
         </div>
 
-        <!-- STEP 4: Weight -->
-        <div id="step4" class="step-container">
+        <!-- STEP 4: Weight (for weight-based stock) -->
+        <div id="step4_weight" class="step-container">
             <h3>الوزن</h3>
             <div class="grid-container">
-                <button type="button" class="circle-btn btn-weight" onclick="nextStep(4, 50)">50g</button>
-                <button type="button" class="circle-btn btn-weight" onclick="nextStep(4, 100)">100g</button>
-                <button type="button" class="circle-btn btn-weight" onclick="nextStep(4, 250)">250g</button>
-                <button type="button" class="circle-btn btn-weight" onclick="nextStep(4, 500)">500g</button>
-                <button type="button" class="circle-btn btn-weight" onclick="nextStep(4, 1000)">1000g</button>
+                <button type="button" class="circle-btn btn-weight" onclick="setWeight(50)">50g</button>
+                <button type="button" class="circle-btn btn-weight" onclick="setWeight(100)">100g</button>
+                <button type="button" class="circle-btn btn-weight" onclick="setWeight(250)">250g</button>
+                <button type="button" class="circle-btn btn-weight" onclick="setWeight(500)">500g</button>
+                <button type="button" class="circle-btn btn-weight" onclick="setWeight(1000)">1000g</button>
+                <button type="button" class="circle-btn bg-dark text-white" onclick="document.getElementById('manualWeight').classList.remove('d-none')">يدوي</button>
+            </div>
+            <div id="manualWeight" class="d-none mt-3 w-25 mx-auto">
+                <input type="number" id="m_weight_val" class="form-control p-3 text-center fs-4" placeholder="جرام" onchange="setWeight(this.value)">
+            </div>
+            <div class="mt-4"><button type="button" class="btn btn-secondary" onclick="backStep(3)">عودة</button></div>
+        </div>
+
+        <!-- STEP 4 (Units): for Qabdah / Qartas stocks -->
+        <div id="step4_units" class="step-container">
+            <h3 id="step4_units_title">العدد</h3>
+            <p id="step4_units_max" class="text-muted"></p>
+            <div class="grid-container" id="unitBtnsGrid"></div>
+            <div id="manualUnits" class="d-none mt-3 w-25 mx-auto">
+                <input type="number" id="m_units_val" class="form-control p-3 text-center fs-4" min="1" placeholder="العدد" onchange="setUnits(this.value)">
             </div>
             <div class="mt-4"><button type="button" class="btn btn-secondary" onclick="backStep(3)">عودة</button></div>
         </div>
@@ -289,23 +268,22 @@ $jsonCustomers = json_encode($customers);
     const allStocks = <?= $jsonStocks ?>;
     const allCustomers = <?= $jsonCustomers ?>;
     let currentStep = 1;
+    let selectedStock = null; // Holds the selected provider/stock object
 
     function nextStep(step, data) {
-        if (step === 1) { // Type
+        if (step === 1) { // Type selected
             document.getElementById('i_type').value = data.id;
             document.getElementById('s_type').innerText = data.name;
             populateProviders(data.id);
-        } else if (step === 2) { // Provider
+        } else if (step === 2) { // Provider/stock selected
             document.getElementById('i_lid').value = data.type === 'manual' ? data.id : '';
             document.getElementById('i_pid').value = data.type === 'momsi' ? data.id : '';
             document.getElementById('i_status').value = data.type === 'momsi' ? 'Momsi' : 'Leftover';
             document.getElementById('s_rawi').innerText = data.name;
-        } else if (step === 3) { // Customer
+            selectedStock = data; // Save full stock object
+        } else if (step === 3) { // Customer selected
             document.getElementById('i_cust').value = data.id;
             document.getElementById('s_cust').innerText = data.name;
-        } else if (step === 4) { // Weight
-            document.getElementById('i_weight').value = data;
-            document.getElementById('s_weight').innerText = data + ' جرام';
         } else if (step === 5) { // Price
             document.getElementById('i_price').value = data;
             document.getElementById('s_price').innerText = data;
@@ -319,10 +297,29 @@ $jsonCustomers = json_encode($customers);
         goTo(step + 1);
     }
 
+    function setWeight(grams) {
+        document.getElementById('i_weight').value = grams;
+        document.getElementById('i_units').value = 0;
+        document.getElementById('i_unit_type').value = 'weight';
+        document.getElementById('s_weight').innerText = grams + ' جرام';
+        goTo(5);
+    }
+
+    function setUnits(count) {
+        count = parseInt(count);
+        if (!count || count < 1) return;
+        const ut = selectedStock ? (selectedStock.unit_type || 'وحدة') : 'وحدة';
+        document.getElementById('i_units').value = count;
+        document.getElementById('i_weight').value = 0;
+        document.getElementById('i_unit_type').value = ut;
+        document.getElementById('s_weight').innerText = ut + ' × ' + count;
+        goTo(5);
+    }
+
     function populateProviders(typeId) {
         const grid = document.getElementById('providerGrid');
         grid.innerHTML = '';
-        const providers = allStocks.filter(s => s.type_id == typeId);
+        const providers = allStocks.filter(s => s.qat_type_id == typeId);
 
         if (providers.length === 0) {
             grid.innerHTML = '<div class="alert alert-warning w-100">لا توجد بقايا لهذا النوع حالياً</div>';
@@ -330,13 +327,27 @@ $jsonCustomers = json_encode($customers);
             providers.forEach(p => {
                 const btn = document.createElement('button');
                 btn.className = 'circle-btn btn-provider';
-                btn.type = 'button'; // Prevent unwanted form submission!
-                const label = `<span>${p.provider_name}</span><br><small class="badge bg-light text-dark text-wrap">${p.sale_date || p.source_date}</small><br><small>${p.remaining_kg} كجم</small>`;
-                btn.innerHTML = label;
+                btn.type = 'button';
+
+                // Show unit count for unit-based stocks, weight for weight-based
+                const ut = p.unit_type || 'weight';
+                let qtyLabel;
+                if (ut === 'قبضة') {
+                    qtyLabel = `<small>قبضة × ${p.remaining_units}</small>`;
+                } else if (ut === 'قراطيس') {
+                    qtyLabel = `<small>قراطيس × ${p.remaining_units}</small>`;
+                } else {
+                    qtyLabel = `<small>${p.remaining_kg} كجم</small>`;
+                }
+
+                btn.innerHTML = `<span>${p.provider_name}</span><br><small class="badge bg-light text-dark text-wrap">${p.sale_date || p.source_date}</small><br>${qtyLabel}`;
                 btn.onclick = () => nextStep(2, {
                     id: p.id,
                     name: p.provider_name,
-                    type: p.type
+                    type: p.type,
+                    unit_type: ut,
+                    remaining_units: p.remaining_units,
+                    remaining_kg: p.remaining_kg
                 });
                 grid.appendChild(btn);
             });
@@ -344,6 +355,46 @@ $jsonCustomers = json_encode($customers);
     }
 
     function goTo(step) {
+        // When going to step 4, decide which step4 variant to show
+        if (step === 4) {
+            const ut = selectedStock ? (selectedStock.unit_type || 'weight') : 'weight';
+            const isUnits = (ut === 'قبضة' || ut === 'قراطيس');
+
+            document.querySelectorAll('.step-container').forEach(el => el.classList.remove('active'));
+
+            if (isUnits) {
+                // Build unit buttons dynamically based on remaining stock
+                const maxU = selectedStock.remaining_units || 10;
+                const grid = document.getElementById('unitBtnsGrid');
+                grid.innerHTML = '';
+                const btnCount = Math.min(maxU, 6);
+                for (let i = 1; i <= btnCount; i++) {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'circle-btn btn-weight';
+                    b.textContent = i;
+                    b.onclick = () => setUnits(i);
+                    grid.appendChild(b);
+                }
+                // Add manual entry button
+                const manBtn = document.createElement('button');
+                manBtn.type = 'button';
+                manBtn.className = 'circle-btn bg-dark text-white';
+                manBtn.textContent = 'يدوي';
+                manBtn.onclick = () => document.getElementById('manualUnits').classList.remove('d-none');
+                grid.appendChild(manBtn);
+
+                document.getElementById('step4_units_title').innerText = 'كم ' + ut + '؟';
+                document.getElementById('step4_units_max').innerText = 'المتاح: ' + maxU + ' ' + ut;
+                document.getElementById('step4_units').classList.add('active');
+                currentStep = 4;
+            } else {
+                document.getElementById('step4_weight').classList.add('active');
+                currentStep = 4;
+            }
+            return;
+        }
+
         document.querySelectorAll('.step-container').forEach(el => el.classList.remove('active'));
         const target = document.getElementById('step' + step);
         if (target) target.classList.add('active');
@@ -351,7 +402,12 @@ $jsonCustomers = json_encode($customers);
     }
 
     function backStep(from) {
-        goTo(from);
+        // If backing from step5, go back to the correct step4 variant
+        if (from === 4) {
+            goTo(4);
+        } else {
+            goTo(from);
+        }
     }
 
     function finishSale(method, debtType) {

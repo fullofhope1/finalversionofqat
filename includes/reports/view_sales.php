@@ -60,7 +60,7 @@
                         <th>العميل</th>
                         <th>الرعوي</th>
                         <th>النوع</th>
-                        <th class="text-center">الوزن</th>
+                        <th class="text-center">الكمية / النوع</th>
                         <th class="text-end">السعر (ريال)</th>
                         <th class="text-center">طريقة الدفع</th>
                         <th class="text-center">الحالة</th>
@@ -70,6 +70,8 @@
                     <?php
                     $totalWeightKG = 0;
                     $totalPrice = 0;
+                    $totalUnitsQabdah = 0;
+                    $totalUnitsQartas = 0;
                     if (empty($listSales)): ?>
                         <tr>
                             <td colspan="9" class="text-center py-5 text-muted">
@@ -81,6 +83,9 @@
                         <?php foreach ($listSales as $s):
                             $totalWeightKG += $s['weight_kg'];
                             $totalPrice += $s['price'];
+                            $unitType = $s['unit_type'] ?? 'weight';
+                            if ($unitType === 'قبضة') $totalUnitsQabdah += (int)($s['quantity_units'] ?? 0);
+                            if ($unitType === 'قراطيس') $totalUnitsQartas += (int)($s['quantity_units'] ?? 0);
                         ?>
                             <tr>
                                 <td><span class="text-muted small">#<?= $s['id'] ?></span></td>
@@ -98,8 +103,29 @@
                                 <td>
                                     <span class="badge bg-info-subtle text-info border border-info-subtle"><?= htmlspecialchars($s['type_name']) ?></span>
                                 </td>
+                                <?php
+                                $ut = $s['unit_type'] ?? 'weight';
+                                $qty = (int)($s['quantity_units'] ?? 0);
+                                ?>
                                 <td class="text-center fw-bold">
-                                    <?= $s['weight_grams'] < 1000 ? $s['weight_grams'] . ' ج' : $s['weight_kg'] . ' كجم' ?>
+                                    <?php if ($ut === 'weight'): ?>
+                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+                                            <i class="fas fa-weight me-1"></i>
+                                            <?= $s['weight_grams'] < 1000 ? $s['weight_grams'] . ' ج' : $s['weight_kg'] . ' كجم' ?>
+                                        </span>
+                                    <?php elseif ($ut === 'قبضة'): ?>
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                            <i class="fas fa-hand-paper me-1"></i>
+                                            قبضة × <?= $qty ?>
+                                        </span>
+                                    <?php elseif ($ut === 'قراطيس'): ?>
+                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                                            <i class="fas fa-box me-1"></i>
+                                            قراطيس × <?= $qty ?>
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="badge bg-light text-muted"><?= htmlspecialchars($ut) ?> × <?= $qty ?></span>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="text-end fw-bold text-dark">
                                     <?= number_format($s['price']) ?>
@@ -134,7 +160,15 @@
                     <tfoot class="bg-light fw-bold" style="border-top: 2px solid #dee2e6;">
                         <tr>
                             <td colspan="5" class="text-end py-3">إجمالي الصفحة:</td>
-                            <td class="text-center py-3"><?= number_format($totalWeightKG, 2) ?> كجم</td>
+                            <td class="text-center py-3 small">
+                                <?= number_format($totalWeightKG, 2) ?> كجم
+                                <?php if ($totalUnitsQabdah > 0): ?>
+                                    <br><span class="text-success">قبضة: <?= $totalUnitsQabdah ?></span>
+                                <?php endif; ?>
+                                <?php if ($totalUnitsQartas > 0): ?>
+                                    <br><span class="text-warning-emphasis">قراطيس: <?= $totalUnitsQartas ?></span>
+                                <?php endif; ?>
+                            </td>
                             <td class="text-end py-3 text-primary h5 fw-bold"><?= number_format($totalPrice) ?> ريال</td>
                             <td colspan="2"></td>
                         </tr>

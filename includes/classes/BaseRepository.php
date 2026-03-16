@@ -66,6 +66,9 @@ abstract class BaseRepository
         $stmt = $this->pdo->prepare($sql);
         foreach ($params as $key => $value) {
             $paramKey = is_int($key) ? $key + 1 : $key;
+            if (is_string($paramKey) && $paramKey[0] !== ':') {
+                $paramKey = ":$paramKey";
+            }
             $type = PDO::PARAM_STR;
 
             if (is_int($value)) {

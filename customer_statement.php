@@ -151,9 +151,33 @@ $business_name = "القادري و ماجد - لأجود أنواع القات"
             </div>
         </div>
 
-        <div class="no-print mb-4 text-center">
-            <button onclick="window.print()" class="btn btn-primary btn-lg px-5">طباعة الكشف</button>
-            <button onclick="history.back()" class="btn btn-secondary btn-lg px-5">عودة</button>
+        <div class="no-print mb-4 text-center d-flex justify-content-center flex-wrap gap-2">
+            <!-- Print / Save as PDF -->
+            <button onclick="window.print()" class="btn btn-primary btn-lg px-4">
+                <i class="fas fa-print me-2"></i>طباعة / PDF
+            </button>
+            <?php
+            $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            $stmtUrl  = $protocol . '://' . $_SERVER['HTTP_HOST'] . '/qat/customer_statement.php?id=' . $id;
+            // WhatsApp: send the PDF/statement link - user prints or saves as PDF then shares
+            $waMsg = rawurlencode(
+                "مرحباً *{$customer['name']}* 👋\n\n" .
+                    "كشف حسابك لدى *القادري و ماجد*:\n\n" .
+                    "💰 الرصيد المستحق: *" . number_format($customer['total_debt']) . " ريال*\n\n" .
+                    "📄 كشف الحساب الكامل:\n{$stmtUrl}\n\n" .
+                    "يرجى السداد في أقرب وقت.\n*القادري و ماجد*"
+            );
+            $waPhone = '967' . ltrim(substr($customer['phone'], -9), '0');
+            ?>
+            <!-- Send statement link via WhatsApp (user opens & prints/saves as PDF from phone) -->
+            <a href="https://wa.me/<?= $waPhone ?>?text=<?= $waMsg ?>"
+                target="_blank"
+                class="btn btn-success btn-lg px-4">
+                <i class="fab fa-whatsapp me-2"></i>إرسال الكشف (واتساب)
+            </a>
+            <button onclick="history.back()" class="btn btn-secondary btn-lg px-4">
+                <i class="fas fa-arrow-right me-2"></i>عودة
+            </button>
         </div>
 
         <div class="statement-header d-flex justify-content-between align-items-center">

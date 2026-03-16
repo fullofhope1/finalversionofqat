@@ -62,7 +62,8 @@ class ReportService extends BaseService
     {
         return [
             'total_receivables' => $this->reportRepo->getTotalReceivables(),
-            'inventory_value' => $this->reportRepo->getInventoryValue()
+            'inventory_value' => $this->reportRepo->getInventoryValue(),
+            'electronic_balance' => $this->reportRepo->getElectronicBalance()
         ];
     }
 }

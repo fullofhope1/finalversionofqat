@@ -1,6 +1,7 @@
 <?php
 // includes/reports/view_waste.php
 $totalWasteWeight = array_sum(array_column($listWaste, 'weight_kg'));
+$totalWasteUnits = array_sum(array_column($listWaste, 'quantity_units'));
 ?>
 
 <div class="card report-table-card shadow-sm border-0 mb-4">
@@ -11,6 +12,9 @@ $totalWasteWeight = array_sum(array_column($listWaste, 'weight_kg'));
         <div>
             <span class="badge bg-danger fs-6 fw-normal me-2">
                 إجمالي الوزن التالف: <?= number_format($totalWasteWeight, 3) ?> كجم
+            </span>
+            <span class="badge bg-danger fs-6 fw-normal me-2">
+                إجمالي التالف بالوحدة: <?= number_format($totalWasteUnits) ?> وحدة
             </span>
             <span class="badge bg-light text-muted fw-normal"><?= count($listWaste) ?> عملية</span>
         </div>
@@ -51,9 +55,9 @@ $totalWasteWeight = array_sum(array_column($listWaste, 'weight_kg'));
                             </td>
                             <td>
                                 <?php if ($w['status'] == 'Auto_Dropped'): ?>
-                                    <span class="badge bg-danger-subtle text-danger-emphasis"><i class="fas fa-robot me-1"></i> إتلاف آلي</span>
+                                    <span class="badge bg-danger-subtle text-danger-emphasis"><i class="fas fa-robot me-1"></i> تالف آلي</span>
                                 <?php else: ?>
-                                    <span class="badge bg-warning-subtle text-warning-emphasis"><i class="fas fa-user-times me-1"></i> إتلاف يدوي</span>
+                                    <span class="badge bg-warning-subtle text-warning-emphasis"><i class="fas fa-user-times me-1"></i> تالف يدوي</span>
                                 <?php endif; ?>
                             </td>
                         </tr>

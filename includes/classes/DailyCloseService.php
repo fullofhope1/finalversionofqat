@@ -27,22 +27,24 @@ class DailyCloseService extends BaseService
             }
 
             // 1b. Handle Momsi purchases in purchases table
-            $stalePurchases = $this->repository->getActiveMomsiStock();
+            $stalePurchases = $this->repository->getActiveMomsiStock($currentDate);
             foreach ($stalePurchases as $p) {
                 $this->repository->trashMomsiPurchase($p['id'], $currentDate);
             }
 
             // --- STEP 2: MOVE TODAY'S SALES (SURPLUS) ---
-            // Identify today's Fresh stock and move remaining quantity to tomorrow.
+            // Triple-Action Sweep: Identify today's Fresh stock and move remaining quantity/units to tomorrow.
             $dayFresh = $this->repository->getDayFreshStock($currentDate);
             foreach ($dayFresh as $p) {
-                $weights = $this->repository->getSoldAndManagedWeightForPurchase($p['id']);
-                $surplus = (float)$p['quantity_kg'] - (float)$weights['sold'] - (float)$weights['managed'];
+                $stats = $this->repository->getSoldAndManagedForPurchase($p['id']);
 
-                if ($surplus > 0.001) {
-                    $this->repository->moveStockToTomorrow($p['id'], $surplus, $currentDate, $tomorrow);
+                $surplusKg = (float)$p['quantity_kg'] - (float)$stats['sold_kg'] - (float)$stats['managed_kg'];
+                $surplusUnits = (int)($p['received_units'] ?? 0) - (int)$stats['sold_units'] - (int)$stats['managed_units'];
+
+                if ($surplusKg > 0.001 || $surplusUnits > 0) {
+                    $this->repository->moveStockToTomorrow($p['id'], $surplusKg, $surplusUnits, $currentDate, $tomorrow);
                 } else {
-                    $this->repository->closePurchase($p['id'] ?? $p['purchase_id']);
+                    $this->repository->closePurchase($p['id']);
                 }
             }
 

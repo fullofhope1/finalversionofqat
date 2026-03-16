@@ -2,16 +2,17 @@
 // requests/process_receiving.php
 require_once '../config/db.php';
 require_once '../includes/Autoloader.php';
-
-session_start();
-
+require_once '../includes/require_auth.php';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $purchaseRepo = new PurchaseRepository($pdo);
         $productRepo = new ProductRepository($pdo);
         $service = new PurchaseService($purchaseRepo, $productRepo);
 
-        $service->receiveShipment($_POST['purchase_id'], $_POST['received_weight_grams']);
+        $receivedWeight = $_POST['received_weight_grams'] ?? 0;
+        $receivedUnits = $_POST['received_units'] ?? 0;
+
+        $service->receiveShipment($_POST['purchase_id'], $receivedWeight, $receivedUnits);
 
         header("Location: ../purchases.php?success=received");
         exit;

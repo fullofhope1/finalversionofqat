@@ -35,10 +35,10 @@ class ReportRepository extends BaseRepository
     public function getDebtStats()
     {
         return [
-            'total_debt' => $this->fetchColumn("SELECT SUM(price - paid_amount) FROM sales WHERE is_paid = 0") ?: 0,
+            'total_debt' => $this->fetchColumn("SELECT SUM(price - paid_amount - COALESCE(refund_amount, 0)) FROM sales WHERE is_paid = 0") ?: 0,
             'overdue_count' => $this->fetchColumn("SELECT COUNT(*) FROM sales WHERE is_paid = 0 AND due_date < CURDATE()") ?: 0,
-            'today_due' => $this->fetchColumn("SELECT SUM(price - paid_amount) FROM sales WHERE is_paid = 0 AND due_date = CURDATE()") ?: 0,
-            'tomorrow_due' => $this->fetchColumn("SELECT SUM(price - paid_amount) FROM sales WHERE is_paid = 0 AND due_date = DATE_ADD(CURDATE(), INTERVAL 1 DAY)") ?: 0
+            'today_due' => $this->fetchColumn("SELECT SUM(price - paid_amount - COALESCE(refund_amount, 0)) FROM sales WHERE is_paid = 0 AND due_date = CURDATE()") ?: 0,
+            'tomorrow_due' => $this->fetchColumn("SELECT SUM(price - paid_amount - COALESCE(refund_amount, 0)) FROM sales WHERE is_paid = 0 AND due_date = DATE_ADD(CURDATE(), INTERVAL 1 DAY)") ?: 0
         ];
     }
 
@@ -200,5 +200,12 @@ class ReportRepository extends BaseRepository
     public function getInventoryValue()
     {
         return $this->fetchColumn("SELECT SUM(agreed_price) FROM purchases WHERE status = 'Fresh'") ?: 0;
+    }
+
+    public function getElectronicBalance()
+    {
+        $electronicSales = $this->fetchColumn("SELECT SUM(price) FROM sales WHERE payment_method IN ('Kuraimi Deposit', 'Jayb Deposit', 'Internal Transfer')") ?: 0;
+        $deposits = $this->fetchColumn("SELECT SUM(amount) FROM qat_deposits") ?: 0;
+        return $electronicSales + $deposits;
     }
 }

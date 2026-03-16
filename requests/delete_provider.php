@@ -1,6 +1,7 @@
 <?php
 require_once '../config/db.php';
-
+require_once '../includes/Autoloader.php';
+require_once '../includes/require_auth.php';
 header('Content-Type: application/json');
 
 $id = $_GET['id'] ?? 0;

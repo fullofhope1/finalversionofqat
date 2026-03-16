@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once 'config/db.php';
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     header("Location: index.php?auth=1");
     exit;
@@ -26,6 +27,10 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     </nav>
 
     <?php
+    require_once 'includes/Autoloader.php';
+    $productRepo = new ProductRepository($pdo);
+    $today = date('Y-m-d');
+
     // Total Shipments
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM purchases WHERE purchase_date = ?");
     $stmt->execute([$today]);
@@ -89,6 +94,55 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
             </div>
         </div>
 
+        <!-- Qat Types Pricing Management -->
+        <div class="col-12 mt-5">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-dark text-white p-4">
+                    <h4 class="mb-0 fw-bold"><i class="fas fa-tags me-2 text-warning"></i> أسعار الأنواع (التقنيات الثلاث)</h4>
+                </div>
+                <div class="card-body p-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle" id="pricingTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>النوع</th>
+                                    <th>سعر الوزن (جرام)</th>
+                                    <th>سعر القبضة</th>
+                                    <th>سعر القرطاس</th>
+                                    <th>إجراء</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php
+                                $productRepo = new ProductRepository($pdo);
+                                $allTypes = $productRepo->getAllActive();
+                                foreach ($allTypes as $t):
+                                ?>
+                                    <tr data-id="<?= $t['id'] ?>">
+                                        <td class="fw-bold"><?= htmlspecialchars($t['name']) ?></td>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm price-weight" value="<?= (float)$t['price_weight'] ?>" placeholder="0">
+                                        </td>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm price-qabdah" value="<?= (float)$t['price_qabdah'] ?>" placeholder="0">
+                                        </td>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm price-qartas" value="<?= (float)$t['price_qartas'] ?>" placeholder="0">
+                                        </td>
+                                        <td>
+                                            <button type="button" class="btn btn-primary btn-sm rounded-pill px-3" onclick="saveTypePrice(<?= $t['id'] ?>, this)">
+                                                <i class="fas fa-save"></i> حفظ
+                                            </button>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Main Action Section -->
         <div class="col-12 mt-4">
             <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
@@ -116,5 +170,44 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
             </div>
         </div>
     </div>
+
+    <script>
+        function saveTypePrice(id, btn) {
+            const row = btn.closest('tr');
+            const data = {
+                id: id,
+                price_weight: row.querySelector('.price-weight').value,
+                price_qabdah: row.querySelector('.price-qabdah').value,
+                price_qartas: row.querySelector('.price-qartas').value
+            };
+
+            const formData = new FormData();
+            for (let key in data) formData.append(key, data[key]);
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+            fetch('requests/update_type_prices.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success) {
+                        btn.className = 'btn btn-success btn-sm rounded-pill px-3';
+                        btn.innerHTML = '<i class="fas fa-check"></i> تم';
+                        setTimeout(() => {
+                            btn.className = 'btn btn-primary btn-sm rounded-pill px-3';
+                            btn.innerHTML = '<i class="fas fa-save"></i> حفظ';
+                            btn.disabled = false;
+                        }, 2000);
+                    } else {
+                        alert('خطأ: ' + res.message);
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-save"></i> حفظ';
+                    }
+                });
+        }
+    </script>
 
     <?php include 'includes/footer.php'; ?>

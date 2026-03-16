@@ -26,18 +26,23 @@
             <div class="card-body">
                 <div class="row text-center h-100 align-items-center">
                     <!-- Cash -->
-                    <div class="col-md-4 border-end">
-                        <h6 class="text-muted text-uppercase small px-2">صافي نقد اليوم</h6>
+                    <div class="col-md-3 border-end">
+                        <h6 class="text-muted text-uppercase small px-1">صافي نقد اليوم</h6>
                         <h4 class="text-success fw-bold"><?= number_format($netCash) ?></h4>
                     </div>
+                    <!-- Electronic -->
+                    <div class="col-md-3 border-end">
+                        <h6 class="text-muted text-uppercase small px-1">رصيد إلكتروني/بنكي</h6>
+                        <h4 class="text-purple fw-bold" style="color: #6f42c1;"><?= number_format($electronicBalance ?? 0) ?></h4>
+                    </div>
                     <!-- Receivables -->
-                    <div class="col-md-4 border-end">
-                        <h6 class="text-muted text-uppercase small px-2">إجمالي الديون عند العملاء</h6>
+                    <div class="col-md-3 border-end">
+                        <h6 class="text-muted text-uppercase small px-1">ديون عند العملاء</h6>
                         <h4 class="text-primary fw-bold"><?= number_format($totalReceivables) ?></h4>
                     </div>
                     <!-- Inventory -->
-                    <div class="col-md-4">
-                        <h6 class="text-muted text-uppercase small px-2">قيمة المخزون التقديرية</h6>
+                    <div class="col-md-3">
+                        <h6 class="text-muted text-uppercase small px-1">قيمة المخزون</h6>
                         <h4 class="text-info fw-bold"><?= number_format($inventoryValue) ?></h4>
                     </div>
                 </div>

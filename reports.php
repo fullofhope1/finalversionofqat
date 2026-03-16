@@ -97,7 +97,11 @@ if (in_array($view, ['Summary', 'Printable', 'Dashboard'])) {
         $dashStats = $service->getDashboardStats();
         $totalReceivables = $dashStats['total_receivables'];
         $inventoryValue = $dashStats['inventory_value'];
-        $netWorth = $totalReceivables + $remainingCash + $inventoryValue;
+        $electronicBalance = $dashStats['electronic_balance'];
+
+        // Corrected Net Worth Formula (Includes Bank/Electronic Funds)
+        $netWorth = $totalReceivables + $remainingCash + $inventoryValue + $electronicBalance;
+
         $netCash = $remainingCash;
         $netProfit = ($totalSales - $cashRefunds) - $totalPurchases - $totalExpenses;
     }
@@ -127,6 +131,12 @@ if (in_array($view, ['Summary', 'Printable', 'Dashboard'])) {
         bottom: 0;
         left: 0;
         background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.1) 0%, transparent 60%);
+    }
+
+    .report-nav-pills {
+        position: relative;
+        z-index: 20;
+        /* Ensure tabs are clickable over the overlapping filter container */
     }
 
     .report-nav-pills .nav-link {

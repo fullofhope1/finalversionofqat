@@ -8,10 +8,10 @@ class DailyCloseRepository extends BaseRepository
      * We look for EVERYTHING currently active in 'Momsi' or 'Leftover' state 
      * to ensure a fresh start.
      */
-    public function getActiveMomsiStock()
+    public function getActiveMomsiStock($currentDate)
     {
-        // Find ALL active Momsi records regardless of date
-        $sql = "SELECT id, qat_type_id, quantity_kg, purchase_date FROM purchases 
+        // Find ALL active Momsi records regardless of date to be trashed, ensuring a clean slate
+        $sql = "SELECT id, qat_type_id, quantity_kg, received_units, unit_type, purchase_date FROM purchases 
                 WHERE status = 'Momsi'";
         return $this->fetchAll($sql);
     }
@@ -19,7 +19,7 @@ class DailyCloseRepository extends BaseRepository
     public function getActiveManualLeftovers()
     {
         // Find ALL active manual leftovers regardless of date
-        $sql = "SELECT id, purchase_id, qat_type_id, weight_kg, source_date 
+        $sql = "SELECT id, purchase_id, qat_type_id, weight_kg, quantity_units, unit_type, source_date 
                 FROM leftovers 
                 WHERE status IN ('Transferred_Next_Day', 'Auto_Momsi')";
         return $this->fetchAll($sql);
@@ -33,15 +33,31 @@ class DailyCloseRepository extends BaseRepository
         $l = $stmt->fetch();
         if (!$l) return;
 
-        // Calculate sold weight
-        $sold = $this->fetchColumn("SELECT SUM(weight_kg) FROM sales WHERE leftover_id = ?", [$leftoverId]) ?: 0;
-        $surplus = (float)$l['weight_kg'] - (float)$sold;
+        // Calculate sold
+        if ($l['unit_type'] === 'weight') {
+            $sold = $this->fetchColumn("SELECT SUM(weight_kg) FROM sales WHERE leftover_id = ?", [$leftoverId]) ?: 0;
+            $surplus = (float)$l['weight_kg'] - (float)$sold;
+            $surplusUnits = 0;
+        } else {
+            $sold = $this->fetchColumn("SELECT SUM(quantity_units) FROM sales WHERE leftover_id = ?", [$leftoverId]) ?: 0;
+            $surplusUnits = (int)$l['quantity_units'] - (int)$sold;
+            $surplus = 0;
+        }
 
-        if ($surplus > 0.001) {
+        if ($surplus > 0.001 || $surplusUnits > 0) {
             // Record as Waste (Auto_Dropped)
-            $sql = "INSERT INTO leftovers (source_date, purchase_id, qat_type_id, weight_kg, status, decision_date, sale_date) 
-                    VALUES (?, ?, ?, ?, 'Auto_Dropped', ?, ?)";
-            $this->pdo->prepare($sql)->execute([$l['source_date'], $l['purchase_id'], $l['qat_type_id'], $surplus, $currentDate, $currentDate]);
+            $sql = "INSERT INTO leftovers (source_date, purchase_id, qat_type_id, weight_kg, quantity_units, unit_type, status, decision_date, sale_date) 
+                    VALUES (?, ?, ?, ?, ?, ?, 'Auto_Dropped', ?, ?)";
+            $this->pdo->prepare($sql)->execute([
+                $l['source_date'],
+                $l['purchase_id'],
+                $l['qat_type_id'],
+                $surplus,
+                $surplusUnits,
+                $l['unit_type'],
+                $currentDate,
+                $currentDate
+            ]);
         }
 
         // Close the record
@@ -55,22 +71,38 @@ class DailyCloseRepository extends BaseRepository
         $p = $stmt->fetch();
         if (!$p) return;
 
-        // Calculate sold/managed weights
-        $stmtW = $this->pdo->prepare("SELECT 
-            (SELECT SUM(weight_kg) FROM sales WHERE purchase_id = ?) as sold,
-            (SELECT SUM(weight_kg) FROM leftovers WHERE purchase_id = ? AND status IN ('Dropped', 'Transferred_Next_Day')) as managed");
-        $stmtW->execute([$purchaseId, $purchaseId]);
-        $row = $stmtW->fetch();
+        if ($p['unit_type'] === 'weight') {
+            $stmtW = $this->pdo->prepare("SELECT 
+                (SELECT SUM(weight_kg) FROM sales WHERE purchase_id = ?) as sold,
+                (SELECT SUM(weight_kg) FROM leftovers WHERE purchase_id = ? AND status IN ('Dropped', 'Transferred_Next_Day')) as managed");
+            $stmtW->execute([$purchaseId, $purchaseId]);
+            $row = $stmtW->fetch();
+            $surplus = (float)$p['quantity_kg'] - (float)($row['sold'] ?? 0) - (float)($row['managed'] ?? 0);
+            $surplusUnits = 0;
+        } else {
+            $stmtU = $this->pdo->prepare("SELECT 
+                (SELECT SUM(quantity_units) FROM sales WHERE purchase_id = ?) as sold,
+                (SELECT SUM(quantity_units) FROM leftovers WHERE purchase_id = ? AND status IN ('Dropped', 'Transferred_Next_Day')) as managed");
+            $stmtU->execute([$purchaseId, $purchaseId]);
+            $row = $stmtU->fetch();
+            $surplusUnits = (int)$p['received_units'] - (int)($row['sold'] ?? 0) - (int)($row['managed'] ?? 0);
+            $surplus = 0;
+        }
 
-        $sold = $row['sold'] ?: 0;
-        $managed = $row['managed'] ?: 0;
-        $surplus = (float)$p['quantity_kg'] - (float)$sold - (float)$managed;
-
-        if ($surplus > 0.001) {
+        if ($surplus > 0.001 || $surplusUnits > 0) {
             // Record as Waste
-            $sql = "INSERT INTO leftovers (source_date, purchase_id, qat_type_id, weight_kg, status, decision_date, sale_date) 
-                    VALUES (?, ?, ?, ?, 'Auto_Dropped', ?, ?)";
-            $this->pdo->prepare($sql)->execute([$p['purchase_date'], $purchaseId, $p['qat_type_id'], $surplus, $currentDate, $currentDate]);
+            $sql = "INSERT INTO leftovers (source_date, purchase_id, qat_type_id, weight_kg, quantity_units, unit_type, status, decision_date, sale_date) 
+                    VALUES (?, ?, ?, ?, ?, ?, 'Auto_Dropped', ?, ?)";
+            $this->pdo->prepare($sql)->execute([
+                $p['purchase_date'],
+                $purchaseId,
+                $p['qat_type_id'],
+                $surplus,
+                $surplusUnits,
+                $p['unit_type'],
+                $p['purchase_date'],
+                $p['purchase_date']
+            ]);
         }
 
         // Close it
@@ -82,37 +114,41 @@ class DailyCloseRepository extends BaseRepository
      */
     public function getDayFreshStock($currentDate)
     {
-        $stmt = $this->pdo->prepare("SELECT id, qat_type_id, quantity_kg FROM purchases 
+        $stmt = $this->pdo->prepare("SELECT id, qat_type_id, quantity_kg, received_units, unit_type FROM purchases 
                                     WHERE purchase_date = ? AND status = 'Fresh'");
         $stmt->execute([$currentDate]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function getSoldAndManagedWeightForPurchase($purchaseId)
+    public function getSoldAndManagedForPurchase($purchaseId)
     {
         $stmt = $this->pdo->prepare("SELECT 
-            (SELECT SUM(weight_kg) FROM sales WHERE purchase_id = ?) as sold,
-            (SELECT SUM(weight_kg) FROM leftovers WHERE purchase_id = ? AND status IN ('Dropped', 'Transferred_Next_Day')) as managed");
-        $stmt->execute([$purchaseId, $purchaseId]);
+            (SELECT SUM(weight_kg) FROM sales WHERE purchase_id = ?) as sold_kg,
+            (SELECT SUM(weight_kg) FROM leftovers WHERE purchase_id = ? AND status IN ('Dropped', 'Transferred_Next_Day')) as managed_kg,
+            (SELECT SUM(quantity_units) FROM sales WHERE purchase_id = ?) as sold_units,
+            (SELECT SUM(quantity_units) FROM leftovers WHERE purchase_id = ? AND status IN ('Dropped', 'Transferred_Next_Day')) as managed_units");
+        $stmt->execute([$purchaseId, $purchaseId, $purchaseId, $purchaseId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return [
-            'sold' => $row['sold'] ?: 0,
-            'managed' => $row['managed'] ?: 0
+            'sold_kg' => $row['sold_kg'] ?: 0,
+            'managed_kg' => $row['managed_kg'] ?: 0,
+            'sold_units' => $row['sold_units'] ?: 0,
+            'managed_units' => $row['managed_units'] ?: 0
         ];
     }
 
-    public function moveStockToTomorrow($purchaseId, $surplus, $currentDate, $tomorrow)
+    public function moveStockToTomorrow($purchaseId, $surplusKg, $surplusUnits, $currentDate, $tomorrow)
     {
         // 1. Create Momsi entry in purchases
-        $sqlP = "INSERT INTO purchases (purchase_date, qat_type_id, quantity_kg, received_weight_grams, is_received, status, received_at, provider_id, original_purchase_id)
-                 SELECT ?, qat_type_id, ?, ?, 1, 'Momsi', ?, provider_id, id 
+        $sqlP = "INSERT INTO purchases (purchase_date, qat_type_id, quantity_kg, received_units, unit_type, received_weight_grams, is_received, status, received_at, provider_id, original_purchase_id)
+                 SELECT ?, qat_type_id, ?, ?, unit_type, ?, 1, 'Momsi', ?, provider_id, id 
                  FROM purchases WHERE id = ?";
-        $this->pdo->prepare($sqlP)->execute([$tomorrow, $surplus, $surplus * 1000, $tomorrow . ' 00:00:01', $purchaseId]);
+        $this->pdo->prepare($sqlP)->execute([$tomorrow, $surplusKg, $surplusUnits, $surplusKg * 1000, $tomorrow . ' 00:00:01', $purchaseId]);
 
         // 2. Create entry in leftovers table
-        $sqlL = "INSERT INTO leftovers (source_date, purchase_id, qat_type_id, weight_kg, status, decision_date, sale_date) 
-                 VALUES (?, ?, (SELECT qat_type_id FROM purchases WHERE id = ?), ?, 'Auto_Momsi', ?, ?)";
-        $this->pdo->prepare($sqlL)->execute([$currentDate, $purchaseId, $purchaseId, $surplus, $currentDate, $tomorrow]);
+        $sqlL = "INSERT INTO leftovers (source_date, purchase_id, qat_type_id, weight_kg, quantity_units, unit_type, status, decision_date, sale_date) 
+                 VALUES (?, ?, (SELECT qat_type_id FROM purchases WHERE id = ?), ?, ?, (SELECT unit_type FROM purchases WHERE id = ?), 'Auto_Momsi', ?, ?)";
+        $this->pdo->prepare($sqlL)->execute([$currentDate, $purchaseId, $purchaseId, $surplusKg, $surplusUnits, $purchaseId, $currentDate, $tomorrow]);
 
         // 3. Close original
         $this->pdo->prepare("UPDATE purchases SET status = 'Closed' WHERE id = ?")->execute([$purchaseId]);
@@ -124,12 +160,11 @@ class DailyCloseRepository extends BaseRepository
     public function migrateDailyDebts($currentDate, $tomorrow)
     {
         $sql = "UPDATE sales
-                SET debt_type = 'Deferred', 
-                    due_date = ?,
+                SET due_date = ?,
                     notes = CONCAT(IFNULL(notes, ''), ' [ترحيل آلي من ', ?, ']')
                 WHERE due_date <= ?
                 AND payment_method = 'Debt'
-                AND debt_type = 'Daily'
+                AND (debt_type = 'Daily' OR debt_type IS NULL OR debt_type = '')
                 AND is_paid = 0";
         return $this->pdo->prepare($sql)->execute([$tomorrow, $currentDate, $currentDate]);
     }

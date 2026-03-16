@@ -58,12 +58,16 @@ $received_purchases = $purchaseService->getReceivedToday($today);
                                         <td><?= htmlspecialchars($p['provider_name']) ?></td>
                                         <td><?= htmlspecialchars($p['type_name']) ?></td>
                                         <td class="fw-bold text-primary">
-                                            <?= number_format($p['source_weight_grams'] / 1000, 3) ?> كجم
+                                            <?php if ($p['unit_type'] === 'weight'): ?>
+                                                <?= number_format($p['source_weight_grams'] / 1000, 3) ?> كجم
+                                            <?php else: ?>
+                                                <?= number_format($p['source_units']) ?> (<?= $p['unit_type'] ?>)
+                                            <?php endif; ?>
                                         </td>
                                         <td><?= number_format($p['agreed_price']) ?></td>
                                         <td>
                                             <button class="btn btn-primary btn-sm"
-                                                onclick="openReceiveModal(<?= $p['id'] ?>, '<?= $p['provider_name'] ?>', '<?= $p['type_name'] ?>', <?= $p['source_weight_grams'] ?>)">
+                                                onclick="openReceiveModal(<?= $p['id'] ?>, '<?= $p['provider_name'] ?>', '<?= $p['type_name'] ?>', '<?= $p['unit_type'] ?>', <?= $p['source_weight_grams'] ?>, <?= $p['source_units'] ?>)">
                                                 استلام وتحقق
                                             </button>
                                         </td>
@@ -100,19 +104,33 @@ $received_purchases = $purchaseService->getReceivedToday($today);
                         <tbody>
                             <?php foreach ($received_purchases as $p): ?>
                                 <?php
-                                $diff = $p['received_weight_grams'] - $p['source_weight_grams'];
-                                $diff_kg = $diff / 1000;
-                                $diff_class = $diff < 0 ? 'text-danger' : ($diff > 0 ? 'text-success' : 'text-muted');
-                                $diff_sign = $diff > 0 ? '+' : '';
+                                if ($p['unit_type'] === 'weight') {
+                                    $diff = $p['received_weight_grams'] - $p['source_weight_grams'];
+                                    $diff_kg = $diff / 1000;
+                                    $diff_class = $diff < 0 ? 'text-danger' : ($diff > 0 ? 'text-success' : 'text-muted');
+                                    $diff_sign = $diff > 0 ? '+' : '';
+
+                                    $source_display = number_format($p['source_weight_grams'] / 1000, 3) . ' كجم';
+                                    $received_display = number_format($p['received_weight_grams'] / 1000, 3) . ' كجم';
+                                    $diff_display = $diff_sign . number_format($diff_kg, 3) . ' كجم';
+                                } else {
+                                    $diff = $p['received_units'] - $p['source_units'];
+                                    $diff_class = $diff < 0 ? 'text-danger' : ($diff > 0 ? 'text-success' : 'text-muted');
+                                    $diff_sign = $diff > 0 ? '+' : '';
+
+                                    $source_display = number_format($p['source_units']) . ' (' . $p['unit_type'] . ')';
+                                    $received_display = number_format($p['received_units']) . ' (' . $p['unit_type'] . ')';
+                                    $diff_display = $diff_sign . number_format($diff) . ' (' . $p['unit_type'] . ')';
+                                }
                                 ?>
                                 <tr>
                                     <td><?= date('H:i', strtotime($p['received_at'])) ?></td>
                                     <td><?= htmlspecialchars($p['provider_name']) ?></td>
                                     <td><?= htmlspecialchars($p['type_name']) ?></td>
-                                    <td><?= number_format($p['source_weight_grams'] / 1000, 3) ?></td>
-                                    <td class="fw-bold"><?= number_format($p['received_weight_grams'] / 1000, 3) ?></td>
+                                    <td><?= $source_display ?></td>
+                                    <td class="fw-bold"><?= $received_display ?></td>
                                     <td class="<?= $diff_class ?>">
-                                        <?= $diff_sign . number_format($diff_kg, 3) ?> كجم
+                                        <?= $diff_display ?>
                                     </td>
                                     <td>
                                         <span class="badge bg-success">تم التخزين</span>
@@ -140,27 +158,34 @@ $received_purchases = $purchaseService->getReceivedToday($today);
                 <div class="modal-body">
                     <p><strong>المورد:</strong> <span id="receive_provider"></span></p>
                     <p><strong>النوع:</strong> <span id="receive_type"></span></p>
-                    <p><strong>الوزن المرسل:</strong> <span id="receive_sent_weight" class="text-primary fw-bold"></span> كجم</p>
+                    <p><strong>المرسل:</strong> <span id="receive_sent_amount" class="text-primary fw-bold"></span> <span id="receive_sent_unit"></span></p>
                     <input type="hidden" id="sent_weight_grams_val">
+                    <input type="hidden" id="sent_units_val">
+                    <input type="hidden" id="receive_unit_type" name="unit_type">
 
                     <hr>
 
-                    <div class="mb-3">
-                        <label class="form-label">Received Weight (الوزن المستلم)</label>
+                    <div class="mb-3" id="weight_receive_group">
+                        <label class="form-label">الوزن المستلم</label>
                         <div class="row">
                             <div class="col-6">
                                 <label class="small text-muted">كيلو</label>
-                                <input type="number" step="0.001" class="form-control" id="receive_kg" required>
+                                <input type="number" step="0.001" class="form-control" id="receive_kg">
                             </div>
                             <div class="col-6">
                                 <label class="small text-muted">جرام</label>
-                                <input type="number" step="1" class="form-control" id="receive_grams" name="received_weight_grams" required>
+                                <input type="number" step="1" class="form-control" id="receive_grams" name="received_weight_grams" value="0">
                             </div>
                         </div>
                     </div>
 
+                    <div class="mb-3 d-none" id="count_receive_group">
+                        <label class="form-label">العدد المستلم</label>
+                        <input type="number" step="1" class="form-control" id="receive_units" name="received_units" value="0">
+                    </div>
+
                     <div class="alert text-center fw-bold" id="diff_display">
-                        الفرق: 0.000 كجم
+                        الفرق: 0.000
                     </div>
 
                 </div>
@@ -174,20 +199,48 @@ $received_purchases = $purchaseService->getReceivedToday($today);
 
 <script>
     let sentWeightGrams = 0;
+    let sentUnits = 0;
+    let currentUnitType = 'weight';
 
-    function openReceiveModal(id, provider, type, sentGrams) {
+    function openReceiveModal(id, provider, type, unit_type, sentGrams, sent_units) {
         document.getElementById('receive_purchase_id').value = id;
         document.getElementById('receive_provider').textContent = provider;
         document.getElementById('receive_type').textContent = type;
-        document.getElementById('receive_sent_weight').textContent = (sentGrams / 1000).toFixed(3);
 
-        sentWeightGrams = sentGrams;
-        document.getElementById('sent_weight_grams_val').value = sentGrams;
+        currentUnitType = unit_type;
+        document.getElementById('receive_unit_type').value = unit_type;
+
+        if (unit_type === 'weight') {
+            document.getElementById('receive_sent_amount').textContent = (sentGrams / 1000).toFixed(3);
+            document.getElementById('receive_sent_unit').textContent = 'كجم';
+            sentWeightGrams = sentGrams;
+            document.getElementById('sent_weight_grams_val').value = sentGrams;
+
+            document.getElementById('weight_receive_group').classList.remove('d-none');
+            document.getElementById('count_receive_group').classList.add('d-none');
+
+            document.getElementById('receive_kg').required = true;
+            document.getElementById('receive_grams').required = true;
+            document.getElementById('receive_units').required = false;
+        } else {
+            document.getElementById('receive_sent_amount').textContent = sent_units;
+            document.getElementById('receive_sent_unit').textContent = '(' + unit_type + ')';
+            sentUnits = sent_units;
+            document.getElementById('sent_units_val').value = sent_units;
+
+            document.getElementById('weight_receive_group').classList.add('d-none');
+            document.getElementById('count_receive_group').classList.remove('d-none');
+
+            document.getElementById('receive_kg').required = false;
+            document.getElementById('receive_grams').required = false;
+            document.getElementById('receive_units').required = true;
+        }
 
         // Clear inputs
         document.getElementById('receive_kg').value = '';
         document.getElementById('receive_grams').value = '';
-        document.getElementById('diff_display').textContent = 'الفرق: 0.000 كجم';
+        document.getElementById('receive_units').value = '';
+        document.getElementById('diff_display').textContent = 'الفرق: 0.000';
         document.getElementById('diff_display').className = 'alert text-center fw-bold alert-secondary';
 
         new bootstrap.Modal(document.getElementById('receiveModal')).show();
@@ -195,6 +248,7 @@ $received_purchases = $purchaseService->getReceivedToday($today);
 
     const rKg = document.getElementById('receive_kg');
     const rGrams = document.getElementById('receive_grams');
+    const rUnits = document.getElementById('receive_units');
     const diffDisplay = document.getElementById('diff_display');
 
     rKg.addEventListener('input', function() {
@@ -211,20 +265,38 @@ $received_purchases = $purchaseService->getReceivedToday($today);
         }
     });
 
+    rUnits.addEventListener('input', updateDiff);
+
     function updateDiff() {
-        const received = parseFloat(rGrams.value) || 0;
-        const diff = received - sentWeightGrams;
-        const diffKg = diff / 1000;
-        const sign = diff > 0 ? '+' : '';
+        if (currentUnitType === 'weight') {
+            const received = parseFloat(rGrams.value) || 0;
+            const diff = received - sentWeightGrams;
+            const diffKg = diff / 1000;
+            const sign = diff > 0 ? '+' : '';
 
-        diffDisplay.textContent = `الفرق: ${sign}${diffKg.toFixed(3)} كجم`;
+            diffDisplay.textContent = `الفرق: ${sign}${diffKg.toFixed(3)} كجم`;
 
-        if (diff < 0) {
-            diffDisplay.className = 'alert text-center fw-bold alert-danger';
-        } else if (diff > 0) {
-            diffDisplay.className = 'alert text-center fw-bold alert-success';
+            if (diff < 0) {
+                diffDisplay.className = 'alert text-center fw-bold alert-danger';
+            } else if (diff > 0) {
+                diffDisplay.className = 'alert text-center fw-bold alert-success';
+            } else {
+                diffDisplay.className = 'alert text-center fw-bold alert-secondary';
+            }
         } else {
-            diffDisplay.className = 'alert text-center fw-bold alert-secondary';
+            const received = parseInt(rUnits.value) || 0;
+            const diff = received - sentUnits;
+            const sign = diff > 0 ? '+' : '';
+
+            diffDisplay.textContent = `الفرق: ${sign}${diff} (${currentUnitType})`;
+
+            if (diff < 0) {
+                diffDisplay.className = 'alert text-center fw-bold alert-danger';
+            } else if (diff > 0) {
+                diffDisplay.className = 'alert text-center fw-bold alert-success';
+            } else {
+                diffDisplay.className = 'alert text-center fw-bold alert-secondary';
+            }
         }
     }
 </script>
