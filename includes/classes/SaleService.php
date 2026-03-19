@@ -44,47 +44,25 @@ class SaleService extends BaseService
         return $stock;
     }
 
-    public function getAvailableLeftoverStock($date = null)
+    public function getAvailableLeftoverStock()
     {
-        $date = $date ?: date('Y-m-d');
-        $manual = $this->leftoverRepo->getTransferredLeftovers($date);
-        $momsi = $this->leftoverRepo->getMomsiStock();
+        $leftovers = $this->leftoverRepo->getTransferredLeftovers();
 
         $leftoverStocks = [];
 
-        // Process Manual Leftovers
-        foreach ($manual as $l) {
+        foreach ($leftovers as $l) {
             $soldKg = (float)$this->saleRepo->getSoldKgByLeftoverId($l['id']);
             $soldUnits = (int)$this->saleRepo->getSoldUnitsByLeftoverId($l['id']);
 
-            $remKg = $l['weight_kg'] - $soldKg;
-            $remUnits = $l['quantity_units'] - $soldUnits;
+            $remKg = (float)$l['weight_kg'] - $soldKg;
+            $remUnits = (int)$l['quantity_units'] - $soldUnits;
 
             if ($remKg > 0.001 || $remUnits > 0) {
                 $l['remaining_kg'] = round($remKg, 3);
                 $l['remaining_units'] = $remUnits;
                 $l['provider_name'] = $l['provider_name'] ?: 'بقايا عامة (General)';
-                $l['type'] = 'manual';
+                $l['type'] = 'leftover';
                 $leftoverStocks[] = $l;
-            }
-        }
-
-        // Process Momsi Stock
-        foreach ($momsi as $m) {
-            $soldKg = (float)$this->saleRepo->getSoldKgByPurchaseId($m['id']);
-            $soldUnits = (int)$this->saleRepo->getSoldUnitsByPurchaseId($m['id']);
-
-            $remKg = $m['quantity_kg'] - $soldKg;
-            $remUnits = $m['received_units'] - $soldUnits;
-
-            if ($remKg > 0.001 || $remUnits > 0) {
-                $m['remaining_kg'] = round($remKg, 3);
-                $m['remaining_units'] = $remUnits;
-                $m['provider_name'] = $m['provider_name'] ?: 'بقايا عامة (General)';
-                $m['type'] = 'momsi';
-                // Map fields to match what frontend expects
-                $m['source_date'] = $m['purchase_date'];
-                $leftoverStocks[] = $m;
             }
         }
 

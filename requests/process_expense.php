@@ -1,6 +1,7 @@
 <?php
 // requests/process_expense.php
-require '../config/db.php';
+require_once '../config/db.php';
+require_once '../includes/Autoloader.php';
 session_start();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -8,6 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         die("Unauthorized");
     }
 
+    try {
         $expenseRepo = new ExpenseRepository($pdo);
         $depositRepo = new DepositRepository($pdo);
         $staffRepo = new StaffRepository($pdo);
@@ -25,8 +27,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $service->addExpense($data);
 
         header("Location: ../expenses.php?success=1");
-    } catch (PDOException $e) {
-        $error = urlencode("Database Error: " . $e->getMessage());
+        exit;
+    } catch (Exception $e) {
+        $error = urlencode("خطأ: " . $e->getMessage());
         header("Location: ../expenses.php?error=$error");
+        exit;
     }
 }

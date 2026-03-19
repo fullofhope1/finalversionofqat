@@ -28,7 +28,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception("مبلغ السداد (" . number_format($amount) . ") أكبر من الدين الحالي (" . number_format($cust['total_debt']) . ")");
         }
 
-        if ($service->recordPayment($customer_id, $amount, $note)) {
+        $payment_method = $_POST['payment_method'] ?? 'Cash';
+        if ($service->recordPayment($customer_id, $amount, $note, $payment_method)) {
             header("Location: ../customer_details.php?id=$customer_id&back=$back&success=1");
             exit;
         }

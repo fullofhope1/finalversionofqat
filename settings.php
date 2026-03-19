@@ -47,6 +47,11 @@ $is_full_admin = (isset($_SESSION['role']) && $_SESSION['role'] === 'super_admin
                                 <i class="fas fa-users-cog me-2"></i> إدارة المستخدمين
                             </button>
                         </li>
+                        <li class="nav-item">
+                            <button class="nav-link rounded-0 text-white py-3 fw-bold" id="system-tab" onclick="switchTab('system')" type="button">
+                                <i class="fas fa-database me-2"></i> إدارة النظام
+                            </button>
+                        </li>
                     <?php endif; ?>
                 </ul>
             </div>
@@ -151,6 +156,64 @@ $is_full_admin = (isset($_SESSION['role']) && $_SESSION['role'] === 'super_admin
                                         </tr>
                                     </tbody>
                                 </table>
+                            </div>
+                        </div>
+
+                        <!-- Tab 3: System Management (Super Admin Only) -->
+                        <div id="system" class="tab-pane-custom" style="display:none;">
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <div class="card shadow-sm border-0 rounded-4 h-100">
+                                        <div class="card-body p-4">
+                                            <h5 class="mb-4 text-success fw-bold"><i class="fas fa-cloud-upload-alt me-2"></i> النسخ الاحتياطي</h5>
+                                            <p class="text-secondary small mb-4">توليد نسخة كاملة من قاعدة البيانات وإرسالها إلى البريد الإلكتروني <span class="badge bg-light text-dark">aiaiaiaihelp@gmail.com</span>.</p>
+
+                                            <div id="backupStatus"></div>
+
+                                            <button type="button" id="btnBackup" onclick="runBackup()" class="btn btn-success rounded-pill px-4 fw-bold shadow-sm w-100 py-3">
+                                                <i class="fas fa-file-export me-2"></i> إرسال نسخة احتياطية الآن
+                                            </button>
+                                            <div class="form-text mt-3 text-center"><i class="fas fa-info-circle me-1"></i> سيتم حفظ نسخة أيضاً في مجلد /backups</div>
+
+                                            <hr class="my-4">
+                                            <h6 class="fw-bold mb-3"><i class="fas fa-history me-2"></i> النسخ السابقة</h6>
+                                            <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
+                                                <table class="table table-sm table-hover small" id="backupsTable">
+                                                    <thead class="table-light sticky-top">
+                                                        <tr>
+                                                            <th>الملف</th>
+                                                            <th class="text-center">إجراءات</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td colspan="2" class="text-center py-3 text-muted">جاري تحميل النسخ...</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="card shadow-sm border-0 rounded-4 h-100">
+                                        <div class="card-body p-4">
+                                            <h5 class="mb-4 text-danger fw-bold"><i class="fas fa-cloud-download-alt me-2"></i> استعادة البيانات</h5>
+                                            <p class="text-secondary small mb-4">رفع ملف <span class="badge bg-light text-dark">.sql</span> لاستعادة البيانات. <span class="text-danger fw-bold">تحذير:</span> سيتم استبدال البيانات الحالية بالكامل.</p>
+
+                                            <form id="importForm" enctype="multipart/form-data">
+                                                <div class="mb-3">
+                                                    <input type="file" name="sql_file" id="sqlFile" class="form-control rounded-pill bg-light" accept=".sql" required>
+                                                </div>
+                                                <button type="submit" id="btnImport" class="btn btn-outline-danger rounded-pill px-4 fw-bold w-100 py-3">
+                                                    <i class="fas fa-upload me-2"></i> بدء عملية الاستيراد
+                                                </button>
+                                            </form>
+                                            <div id="importStatus" class="mt-3"></div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -395,6 +458,61 @@ $is_full_admin = (isset($_SESSION['role']) && $_SESSION['role'] === 'super_admin
             }
         }
 
+        function runBackup() {
+            const btn = document.getElementById('btnBackup');
+            const status = document.getElementById('backupStatus');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> جاري التحضير...';
+            status.innerHTML = '';
+
+            fetch('requests/backup_db.php')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        status.innerHTML = `<div class="alert alert-success small">${data.message}</div>`;
+                    } else {
+                        status.innerHTML = `<div class="alert alert-danger small">${data.message}</div>`;
+                    }
+                })
+                .catch(e => {
+                    status.innerHTML = `<div class="alert alert-danger small">خطأ في الاتصال: ${e.message}</div>`;
+                })
+                .finally(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-file-export me-2"></i> إرسال نسخة احتياطية الآن';
+                    loadBackups();
+                });
+        }
+
+        function loadBackups() {
+            const tbody = document.querySelector('#backupsTable tbody');
+            fetch('requests/backup_db.php?action=list')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.files.length > 0) {
+                        let html = '';
+                        data.files.forEach(f => {
+                            html += `
+                                <tr>
+                                    <td class="align-middle">${f}</td>
+                                    <td class="text-center">
+                                        <a href="backups/${f}" download class="btn btn-xs btn-outline-primary rounded-pill px-2 py-0" title="تحميل">
+                                            <i class="fas fa-download"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            `;
+                        });
+                        tbody.innerHTML = html;
+                    } else {
+                        tbody.innerHTML = '<tr><td colspan="2" class="text-center py-3 text-muted">لا توجد نسخ حالياً.</td></tr>';
+                    }
+                })
+                .catch(e => {
+                    tbody.innerHTML = '<tr><td colspan="2" class="text-center py-3 text-danger">خطأ في التحميل.</td></tr>';
+                });
+        }
+
         function attachUsersListeners() {
             if (usersListenersAttached) return;
             usersListenersAttached = true;
@@ -526,10 +644,52 @@ $is_full_admin = (isset($_SESSION['role']) && $_SESSION['role'] === 'super_admin
                             }
                         });
                 });
+
+                // Import Form submit
+                var importForm = document.getElementById('importForm');
+                if (importForm) importForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    if (!confirm('هل أنت متأكد؟ سيتم استبدال قاعدة البيانات الحالية بالكامل ولا يمكن التراجع عن ذلك.')) return;
+
+                    const btn = document.getElementById('btnImport');
+                    const status = document.getElementById('importStatus');
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> جاري الاستيراد...';
+                    status.innerHTML = '';
+
+                    var formData = new FormData(this);
+                    fetch('requests/import_db.php', {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.success) {
+                                status.innerHTML = `<div class="alert alert-success small">${data.message}</div>`;
+                                setTimeout(() => location.reload(), 2000);
+                            } else {
+                                status.innerHTML = `<div class="alert alert-danger small">${data.message}</div>`;
+                            }
+                        })
+                        .catch(e => {
+                            status.innerHTML = `<div class="alert alert-danger small">خطأ في الاتصال: ${e.message}</div>`;
+                        })
+                        .finally(() => {
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fas fa-upload me-2"></i> بدء عملية الاستيراد';
+                        });
+                });
             } else {
                 setTimeout(initSettingsWhenReady, 50);
             }
         }
+
+        // Initialize backups list on load
+        window.addEventListener('DOMContentLoaded', () => {
+            if (document.getElementById('backupsTable')) {
+                loadBackups();
+            }
+        });
 
         window.addEventListener('DOMContentLoaded', initSettingsWhenReady);
     </script>

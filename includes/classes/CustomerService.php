@@ -22,13 +22,29 @@ class CustomerService extends BaseService
 
     public function addCustomer($name, $phone, $debtLimit = null)
     {
+        $name = trim($name);
+        $phone = trim($phone);
+
+        // Validation: Fields required
+        if (empty($name)) {
+            throw new Exception("الاسم مطلوب (Name is required)");
+        }
+        if (empty($phone)) {
+            throw new Exception("رقم الهاتف مطلوب (Phone is required)");
+        }
+
+        // Validation: Phone format (7xxxxxxxxx)
+        if (!preg_match('/^\d{7,15}$/', $phone)) {
+            throw new Exception("رقم الهاتف غير صحيح - يجب أن يكون أرقاماً فقط (Invalid phone format)");
+        }
+
         // Validation: Name must be unique
         if ($this->repository->getByName($name)) {
             throw new Exception("الاسم موجود مسبقاً (This name already exists)");
         }
 
-        // Validation: Phone must be unique if provided
-        if (!empty($phone) && $this->repository->getByPhone($phone)) {
+        // Validation: Phone must be unique
+        if ($this->repository->getByPhone($phone)) {
             throw new Exception("رقم الهاتف موجود مسبقاً (This phone number already exists)");
         }
 

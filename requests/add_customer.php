@@ -7,26 +7,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phone = trim($_POST['phone']);
     $debt_limit = (isset($_POST['debt_limit']) && $_POST['debt_limit'] !== '') ? $_POST['debt_limit'] : null;
 
-    // Validate phone is required and numeric
-    if (empty($phone)) {
-        header("Location: ../customers.php?error=" . urlencode("رقم الجوال مطلوب"));
+    try {
+        $repo = new CustomerRepository($pdo);
+        $service = new CustomerService($repo);
+
+        $service->addCustomer($name, $phone, $debt_limit);
+        header("Location: ../customers.php");
+        exit;
+    } catch (Exception $e) {
+        header("Location: ../customers.php?error=" . urlencode($e->getMessage()));
         exit;
     }
-    if (!preg_match('/^\d{7,15}$/', $phone)) {
-        header("Location: ../customers.php?error=" . urlencode("رقم الجوال يجب أن يحتوي على أرقام فقط (7-15 رقم)"));
-        exit;
-    }
-
-    // Check for duplicate name or phone
-    $check = $pdo->prepare("SELECT id FROM customers WHERE (name = ? OR phone = ?) AND is_deleted = 0");
-    $check->execute([$name, $phone]);
-    if ($check->fetch()) {
-        header("Location: ../customers.php?error=" . urlencode("اسم العميل أو رقم الجوال مستخدم بالفعل"));
-        exit;
-    }
-
-    $sql = "INSERT INTO customers (name, phone, debt_limit) VALUES (?, ?, ?)";
-    $pdo->prepare($sql)->execute([$name, $phone, $debt_limit]);
-
-    header("Location: ../customers.php");
 }

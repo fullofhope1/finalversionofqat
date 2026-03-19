@@ -9,24 +9,23 @@ function trigger_auto_closing($pdo, $targetDate = null, $force = false)
 {
     $limitDate = $targetDate ?: date('Y-m-d', strtotime('-1 day'));
 
-    if ($force) {
-        $oldest_unclosed = $limitDate; // Force it to point to the target date
-    } else {
-        // Find the oldest date that has unclosed activity (up to $limitDate)
-        // Using COALESCE to handle NULL purchase_date/sale_date by falling back to created_at
-        $stmt = $pdo->prepare("SELECT MIN(d) FROM (
-            SELECT MIN(COALESCE(purchase_date, DATE(created_at))) as d FROM purchases WHERE status IN ('Fresh', 'Momsi') AND (purchase_date <= ? OR (purchase_date IS NULL AND DATE(created_at) <= ?))
-            UNION
-            SELECT MIN(COALESCE(sale_date, DATE(created_at))) as d FROM sales WHERE payment_method = 'Debt' AND debt_type = 'Daily' AND is_paid = 0 AND (sale_date <= ? OR (sale_date IS NULL AND DATE(created_at) <= ?))
-            UNION
-            SELECT MIN(sale_date) as d FROM leftovers WHERE status = 'Transferred_Next_Day' AND sale_date <= ?
-        ) as unclosed_dates");
-        $stmt->execute([$limitDate, $limitDate, $limitDate, $limitDate, $limitDate]);
+    // Always find the oldest date that has unclosed activity (up to $limitDate)
+    $stmt = $pdo->prepare("SELECT MIN(d) FROM (
+        SELECT MIN(COALESCE(purchase_date, DATE(created_at))) as d FROM purchases WHERE status IN ('Fresh', 'Momsi') AND (purchase_date <= ? OR (purchase_date IS NULL AND DATE(created_at) <= ?))
+        UNION
+        SELECT MIN(COALESCE(sale_date, DATE(created_at))) as d FROM sales WHERE payment_method = 'Debt' AND debt_type = 'Daily' AND is_paid = 0 AND (sale_date <= ? OR (sale_date IS NULL AND DATE(created_at) <= ?))
+        UNION
+        SELECT MIN(sale_date) as d FROM leftovers WHERE status = 'Transferred_Next_Day' AND sale_date <= ?
+    ) as unclosed_dates");
+    $stmt->execute([$limitDate, $limitDate, $limitDate, $limitDate, $limitDate]);
 
-        $oldest_unclosed = $stmt->fetchColumn();
+    $oldest_unclosed = $stmt->fetchColumn();
 
-        if (!$oldest_unclosed || $oldest_unclosed > $limitDate) {
-            return; // Everything is up to date relative to the limit
+    if (!$oldest_unclosed) {
+        if ($force) {
+            $oldest_unclosed = $limitDate;
+        } else {
+            return; // Everything is up to date
         }
     }
 

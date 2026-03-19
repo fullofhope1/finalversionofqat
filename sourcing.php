@@ -401,233 +401,242 @@ $shipments = $purchaseRepo->getTodayShipmentsByUserId($today, $user_id);
             <?php else: ?>
                 <?php foreach ($shipments as $p): ?>
                     <div class="col-md-6">
-                        <div class="card shipment-card bg-white p-3 shadow-sm border-0">
+                        <div class="card shipment-card bg-white p-3 shadow-sm border-0 h-100">
                             <div class="d-flex justify-content-between align-items-center">
-                                <div class="d-flex align-items-center">
-                                    <div class="bg-primary-subtle text-primary p-3 rounded-circle me-3">
-                                        <i class="fas fa-user"></i>
+                                <div class="d-flex align-items-center flex-fill">
+                                    <div class="bg-primary-subtle text-primary p-2 rounded-3 me-3">
+                                        <i class="fas fa-truck-loading fs-5"></i>
                                     </div>
-                                    <div>
-                                        <h6 class="mb-0 fw-bold"><?= htmlspecialchars($p['provider_name']) ?></h6>
-                                        <div class="text-end">
+                                    <div class="flex-fill">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <h6 class="mb-0 fw-bold text-dark"><?= htmlspecialchars($p['provider_name']) ?></h6>
+                                            <span class="text-muted x-small"><?= date('h:i A', strtotime($p['created_at'] ?? 'now')) ?></span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center mt-2">
                                             <div class="fw-bold text-primary">
                                                 <?php if ($p['unit_type'] === 'weight'): ?>
-                                                    <?= number_format($p['source_weight_grams'] / 1000, 3) ?> <small>كجم</small>
+                                                    <?= number_format($p['source_weight_grams'] / 1000, 3) ?> <small class="text-muted">كجم</small>
                                                 <?php else: ?>
-                                                    <?= number_format($p['source_units']) ?> <small><?= htmlspecialchars($p['unit_type']) ?></small>
+                                                    <?= number_format($p['source_units']) ?> <small class="text-muted"><?= htmlspecialchars($p['unit_type']) ?></small>
+                                                <?php endif; ?>
+                                                <span class="mx-1 ms-2 text-secondary opacity-50">|</span>
+                                                <span class="text-secondary small"><?= htmlspecialchars($p['type_name']) ?></span>
+                                            </div>
+                                            <div>
+                                                <?php if ($p['is_received']): ?>
+                                                    <span class="badge bg-success-subtle text-success rounded-pill border border-success-subtle px-2">تم الاستلام</span>
+                                                <?php else: ?>
+                                                    <span class="badge bg-warning-subtle text-warning rounded-pill border border-warning-subtle px-2">قيد الشحن</span>
                                                 <?php endif; ?>
                                             </div>
-                                            <?php if ($p['is_received']): ?>
-                                                <span class="badge bg-success-subtle text-success small">تم الاستلام</span>
-                                            <?php else: ?>
-                                                <span class="badge bg-warning-subtle text-warning small">قيد الشحن</span>
-                                            <?php endif; ?>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                        </div>
-
-                        <div class="text-center mt-4">
-                            <a href="reports.php?report_type=Daily" class="btn btn-link text-decoration-none text-secondary small">
-                                <i class="fas fa-external-link-alt me-1"></i> عرض تقرير التوريد المفصل
-                            </a>
                         </div>
                     </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
         </div>
 
-        <!-- Add Provider Modal -->
-        <div class="modal fade" id="addProviderModal" tabindex="-1">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content border-0 rounded-4 shadow">
-                    <div class="modal-header bg-dark text-white">
-                        <h5 class="modal-title fw-bold">إضافة مورد جديد</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body p-4">
-                        <div class="mb-3">
-                            <label class="small fw-bold mb-1">الاسم الكامل <span class="text-danger">*</span></label>
-                            <input type="text" id="new_provider_name" class="form-control rounded-3" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="small fw-bold mb-1">رقم الهاتف <span class="text-danger">*</span></label>
-                            <input type="tel" id="new_provider_phone" class="form-control rounded-3" required inputmode="numeric" placeholder="7xxxxxxxxx">
-                        </div>
-                    </div>
-                    <div class="modal-footer border-0 p-4 pt-0">
-                        <button type="button" class="btn btn-primary w-100 rounded-pill fw-bold" onclick="saveProvider()">حفظ المورد</button>
-                    </div>
+        <div class="text-center mt-4">
+            <a href="reports.php?report_type=Daily" class="btn btn-link text-decoration-none text-secondary small">
+                <i class="fas fa-external-link-alt me-1"></i> عرض تقرير التوريد المفصل
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Add Provider Modal -->
+<div class="modal fade" id="addProviderModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title fw-bold">إضافة مورد جديد</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <label class="small fw-bold mb-1">الاسم الكامل <span class="text-danger">*</span></label>
+                    <input type="text" id="new_provider_name" class="form-control rounded-3" required>
+                </div>
+                <div class="mb-3">
+                    <label class="small fw-bold mb-1">رقم الهاتف <span class="text-danger">*</span></label>
+                    <input type="tel" id="new_provider_phone" class="form-control rounded-3" required inputmode="numeric" placeholder="7xxxxxxxxx">
                 </div>
             </div>
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button type="button" class="btn btn-primary w-100 rounded-pill fw-bold" onclick="saveProvider()">حفظ المورد</button>
+            </div>
         </div>
+    </div>
+</div>
 
-        <script>
-            // Weight & Price Logic
-            const kgInput = document.getElementById('weight_kg');
-            const gramsInput = document.getElementById('weight_grams');
-            const priceInput = document.getElementById('price_per_kilo');
+<script>
+    // Weight & Price Logic
+    const kgInput = document.getElementById('weight_kg');
+    const gramsInput = document.getElementById('weight_grams');
+    const priceInput = document.getElementById('price_per_kilo');
 
-            const unitsInput = document.getElementById('source_units');
-            const priceUInput = document.getElementById('price_per_unit');
+    const unitsInput = document.getElementById('source_units');
+    const priceUInput = document.getElementById('price_per_unit');
 
-            const totalDisplay = document.getElementById('total_cost_display');
+    const totalDisplay = document.getElementById('total_cost_display');
 
-            // Wizard Navigation Logic
-            function nextStep(step) {
-                // Validation for Step 1
-                if (step === 2) {
-                    const provider = document.getElementById('provider_select').value;
-                    const type = document.getElementById('type_name_input').value.trim();
-                    if (!provider || !type) {
-                        alert('يرجى اختيار المورد ونوع القات أولاً.');
-                        return;
-                    }
-                    toggleInputs(); // Ensure correct inputs shown
-                }
-
-                // Validation for Step 2
-                if (step === 3) {
-                    const tech = document.querySelector('input[name="unit_type"]:checked').value;
-                    if (tech === 'weight') {
-                        const grams = gramsInput.value;
-                        const price = priceInput.value;
-                        if (!grams || !price || grams <= 0 || price <= 0) {
-                            alert('يرجى إدخال الوزن والسعر بشكل صحيح.');
-                            return;
-                        }
-                    } else {
-                        const units = unitsInput.value;
-                        const priceU = priceUInput.value;
-                        if (!units || !priceU || units <= 0 || priceU <= 0) {
-                            alert('يرجى إدخال العدد وسعر الحبة بشكل صحيح.');
-                            return;
-                        }
-                    }
-                }
-
-                // Hide all steps
-                document.querySelectorAll('.form-step').forEach(el => el.classList.remove('active'));
-                // Show target step
-                document.getElementById('step-' + step).classList.add('active');
-
-                // Update Stepper Indicators
-                document.querySelectorAll('.step-item').forEach((el, idx) => {
-                    el.classList.remove('active', 'completed');
-                    if (idx + 1 < step) el.classList.add('completed');
-                    if (idx + 1 === step) el.classList.add('active');
-                });
-
-                // Scroll top
-                window.scrollTo({
-                    top: 0,
-                    behavior: 'smooth'
-                });
+    // Wizard Navigation Logic
+    function nextStep(step) {
+        // Validation for Step 1
+        if (step === 2) {
+            const provider = document.getElementById('provider_select').value;
+            const type = document.getElementById('type_name_input').value.trim();
+            if (!provider || !type) {
+                alert('يرجى اختيار المورد ونوع القات أولاً.');
+                return;
             }
+            toggleInputs(); // Ensure correct inputs shown
+        }
 
-            function toggleInputs() {
-                const tech = document.querySelector('input[name="unit_type"]:checked').value;
-                const weightSection = document.getElementById('weight_inputs');
-                const countSection = document.getElementById('count_inputs');
-
-                if (tech === 'weight') {
-                    weightSection.classList.remove('d-none');
-                    countSection.classList.add('d-none');
-                } else {
-                    weightSection.classList.add('d-none');
-                    countSection.classList.remove('d-none');
+        // Validation for Step 2
+        if (step === 3) {
+            const tech = document.querySelector('input[name="unit_type"]:checked').value;
+            if (tech === 'weight') {
+                const grams = gramsInput.value;
+                const price = priceInput.value;
+                if (!grams || !price || grams <= 0 || price <= 0) {
+                    alert('يرجى إدخال الوزن والسعر بشكل صحيح.');
+                    return;
                 }
-                calculateTotal();
+            } else {
+                const units = unitsInput.value;
+                const priceU = priceUInput.value;
+                if (!units || !priceU || units <= 0 || priceU <= 0) {
+                    alert('يرجى إدخال العدد وسعر الحبة بشكل صحيح.');
+                    return;
+                }
             }
+        }
 
-            kgInput.addEventListener('input', function() {
-                if (this.value) {
-                    gramsInput.value = Math.round(parseFloat(this.value) * 1000);
-                    calculateTotal();
+        // Hide all steps
+        document.querySelectorAll('.form-step').forEach(el => el.classList.remove('active'));
+        // Show target step
+        document.getElementById('step-' + step).classList.add('active');
+
+        // Update Stepper Indicators
+        document.querySelectorAll('.step-item').forEach((el, idx) => {
+            el.classList.remove('active', 'completed');
+            if (idx + 1 < step) el.classList.add('completed');
+            if (idx + 1 === step) el.classList.add('active');
+        });
+
+        // Scroll top
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    }
+
+    function toggleInputs() {
+        const tech = document.querySelector('input[name="unit_type"]:checked').value;
+        const weightSection = document.getElementById('weight_inputs');
+        const countSection = document.getElementById('count_inputs');
+
+        if (tech === 'weight') {
+            weightSection.classList.remove('d-none');
+            countSection.classList.add('d-none');
+        } else {
+            weightSection.classList.add('d-none');
+            countSection.classList.remove('d-none');
+        }
+        calculateTotal();
+    }
+
+    kgInput.addEventListener('input', function() {
+        if (this.value) {
+            gramsInput.value = Math.round(parseFloat(this.value) * 1000);
+            calculateTotal();
+        } else {
+            gramsInput.value = '';
+            calculateTotal();
+        }
+    });
+
+    gramsInput.addEventListener('input', function() {
+        if (this.value) {
+            kgInput.value = (parseFloat(this.value) / 1000).toFixed(3);
+            calculateTotal();
+        } else {
+            kgInput.value = '';
+            calculateTotal();
+        }
+    });
+
+    priceInput.addEventListener('input', calculateTotal);
+    unitsInput.addEventListener('input', calculateTotal);
+    priceUInput.addEventListener('input', calculateTotal);
+
+    function calculateTotal() {
+        const tech = document.querySelector('input[name="unit_type"]:checked').value;
+        let total = 0;
+
+        if (tech === 'weight') {
+            const kg = parseFloat(kgInput.value) || 0;
+            const price = parseFloat(priceInput.value) || 0;
+            total = Math.round(kg * price);
+        } else {
+            const units = parseInt(unitsInput.value) || 0;
+            const priceU = parseFloat(priceUInput.value) || 0;
+            total = Math.round(units * priceU);
+        }
+
+        totalDisplay.textContent = total.toLocaleString();
+    }
+
+    function filterProviders() {
+        const input = document.getElementById('provider_search');
+        const filter = input.value.toLowerCase();
+        const select = document.getElementById('provider_select');
+        const options = select.getElementsByTagName('option');
+
+        for (let i = 0; i < options.length; i++) {
+            if (options[i].value === "") continue;
+            const txtValue = options[i].textContent || options[i].innerText;
+            if (txtValue.toLowerCase().indexOf(filter) > -1) {
+                options[i].style.display = "";
+            } else {
+                options[i].style.display = "none";
+            }
+        }
+    }
+
+    // AJAX Provider Add
+    function saveProvider() {
+        const name = document.getElementById('new_provider_name').value.trim();
+        const phone = document.getElementById('new_provider_phone').value.trim();
+
+        if (!name || !phone) return alert('جميع الحقول مطلوبة');
+        if (!/^\d{7,15}$/.test(phone)) return alert('رقم الهاتف يجب أن يحتوي على أرقام فقط');
+
+        const formData = new FormData();
+        formData.append('name', name);
+        formData.append('phone', phone);
+
+        fetch('requests/add_provider.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const select = document.getElementById('provider_select');
+                    const option = new Option(data.provider.name, data.provider.id);
+                    select.add(option);
+                    select.value = data.provider.id;
+                    bootstrap.Modal.getInstance(document.getElementById('addProviderModal')).hide();
                 } else {
-                    gramsInput.value = '';
-                    calculateTotal();
+                    alert('Error: ' + data.message);
                 }
             });
+    }
+</script>
 
-            gramsInput.addEventListener('input', function() {
-                if (this.value) {
-                    kgInput.value = (parseFloat(this.value) / 1000).toFixed(3);
-                    calculateTotal();
-                } else {
-                    kgInput.value = '';
-                    calculateTotal();
-                }
-            });
-
-            priceInput.addEventListener('input', calculateTotal);
-            unitsInput.addEventListener('input', calculateTotal);
-            priceUInput.addEventListener('input', calculateTotal);
-
-            function calculateTotal() {
-                const tech = document.querySelector('input[name="unit_type"]:checked').value;
-                let total = 0;
-
-                if (tech === 'weight') {
-                    const kg = parseFloat(kgInput.value) || 0;
-                    const price = parseFloat(priceInput.value) || 0;
-                    total = Math.round(kg * price);
-                } else {
-                    const units = parseInt(unitsInput.value) || 0;
-                    const priceU = parseFloat(priceUInput.value) || 0;
-                    total = Math.round(units * priceU);
-                }
-
-                totalDisplay.textContent = total.toLocaleString();
-            }
-
-            function filterProviders() {
-                const input = document.getElementById('provider_search');
-                const filter = input.value.toLowerCase();
-                const select = document.getElementById('provider_select');
-                const options = select.getElementsByTagName('option');
-
-                for (let i = 0; i < options.length; i++) {
-                    if (options[i].value === "") continue;
-                    const txtValue = options[i].textContent || options[i].innerText;
-                    if (txtValue.toLowerCase().indexOf(filter) > -1) {
-                        options[i].style.display = "";
-                    } else {
-                        options[i].style.display = "none";
-                    }
-                }
-            }
-
-            // AJAX Provider Add
-            function saveProvider() {
-                const name = document.getElementById('new_provider_name').value.trim();
-                const phone = document.getElementById('new_provider_phone').value.trim();
-
-                if (!name || !phone) return alert('جميع الحقول مطلوبة');
-                if (!/^\d{7,15}$/.test(phone)) return alert('رقم الهاتف يجب أن يحتوي على أرقام فقط');
-
-                const formData = new FormData();
-                formData.append('name', name);
-                formData.append('phone', phone);
-
-                fetch('requests/add_provider.php', {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data.success) {
-                            const select = document.getElementById('provider_select');
-                            const option = new Option(data.provider.name, data.provider.id);
-                            select.add(option);
-                            select.value = data.provider.id;
-                            bootstrap.Modal.getInstance(document.getElementById('addProviderModal')).hide();
-                        } else {
-                            alert('Error: ' + data.message);
-                        }
-                    });
-            }
-        </script>
-
-        <?php include 'includes/footer.php'; ?>
+<?php include 'includes/footer.php'; ?>

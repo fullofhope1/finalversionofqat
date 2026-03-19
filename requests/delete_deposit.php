@@ -1,5 +1,6 @@
 <?php
 require_once '../config/db.php';
+require_once '../includes/Autoloader.php';
 session_start();
 if (!isset($_SESSION['user_id'])) {
     die("Unauthorized");

@@ -91,11 +91,11 @@ class DebtRepository extends BaseRepository
         return $this->execute($sql, [$saleId]);
     }
 
-    public function insertPayment($customerId, $amount, $note, $date = null)
+    public function insertPayment($customerId, $amount, $note, $method = 'Cash', $date = null)
     {
         $date = $date ?: date('Y-m-d');
-        $sql = "INSERT INTO payments (customer_id, amount, note, payment_date) VALUES (?, ?, ?, ?)";
-        return $this->execute($sql, [$customerId, $amount, $note, $date]);
+        $sql = "INSERT INTO payments (customer_id, amount, payment_method, note, payment_date) VALUES (?, ?, ?, ?, ?)";
+        return $this->execute($sql, [$customerId, $amount, $method, $note, $date]);
     }
 
     public function getUnpaidSales($customerId)

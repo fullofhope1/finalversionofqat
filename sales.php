@@ -658,9 +658,12 @@ $jsonCustomers = json_encode($customers);
     }
 
     function saveNewCust() {
-        const name = document.getElementById('new_name').value;
-        const phone = document.getElementById('new_phone').value;
-        if (!name) return alert("الاسم مطلوب"); // Name required
+        const name = document.getElementById('new_name').value.trim();
+        const phone = document.getElementById('new_phone').value.trim();
+
+        if (!name) return alert("الاسم مطلوب (Name is required)");
+        if (!phone) return alert("رقم الهاتف مطلوب (Phone is required)");
+        if (!/^\d{7,15}$/.test(phone)) return alert("رقم الهاتف غير صحيح - يجب أن يكون أرقاماً فقط (7-15 رقم)");
 
         // Simple AJAX to add customer
         const formData = new FormData();

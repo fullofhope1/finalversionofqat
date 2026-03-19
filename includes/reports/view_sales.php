@@ -94,8 +94,15 @@
                                     <div class="small text-muted"><?= date('M d, H:i', strtotime($s['sale_date'])) ?></div>
                                 </td>
                                 <td>
-                                    <div class="fw-bold"><?= htmlspecialchars($s['cust_name'] ?? 'عميل سفري') ?></div>
-                                    <div class="text-muted small">ID: <?= $s['customer_id'] ?: '---' ?></div>
+                                    <?php if ($s['customer_id']): ?>
+                                        <a href="customer_details.php?id=<?= $s['customer_id'] ?>&back=<?= urlencode($_SERVER['REQUEST_URI']) ?>" class="text-decoration-none">
+                                            <div class="fw-bold text-primary"><?= htmlspecialchars($s['cust_name'] ?? 'عميل سفري') ?></div>
+                                            <div class="text-muted small">ID: <?= $s['customer_id'] ?></div>
+                                        </a>
+                                    <?php else: ?>
+                                        <div class="fw-bold"><?= htmlspecialchars($s['cust_name'] ?? 'عميل سفري') ?></div>
+                                        <div class="text-muted small">ID: ---</div>
+                                    <?php endif; ?>
                                 </td>
                                 <td>
                                     <span class="badge bg-light text-dark fw-normal border"><?= htmlspecialchars($s['prov_name'] ?? '---') ?></span>

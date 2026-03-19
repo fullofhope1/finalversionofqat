@@ -67,8 +67,11 @@ if ($reportType === 'Monthly') {
 $reportRepo = new ReportRepository($pdo);
 $service = new ReportService($reportRepo);
 
+// Current user ID for filtering user-specific data (expenses, deposits)
+$current_user_id = $_SESSION['user_id'] ?? null;
+
 // --- CORE DATA FETCHING ---
-$overview = $service->getOverviewData($reportType, $date, $month, $year);
+$overview = $service->getOverviewData($reportType, $date, $month, $year, $current_user_id);
 $totalSales = $overview['total_sales'];
 $totalPurchases = $overview['total_purchases'];
 $totalExpenses = $overview['total_expenses'];
@@ -79,14 +82,14 @@ $tomorrowDue = $overview['tomorrow_due'];
 $listRefunds = $overview['refunds'];
 
 // Tab-specific data
-$listSales = ($view === 'Sales' || $view === 'Printable') ? $service->getDetailedViewData('Sales', $reportType, $date, $month, $year, $provider_id) : [];
-$listPurch = ($view === 'Receiving' || $view === 'Printable') ? $service->getDetailedViewData('Receiving', $reportType, $date, $month, $year) : [];
-$listExp = ($view === 'Expenses' || $view === 'Printable') ? $service->getDetailedViewData('Expenses', $reportType, $date, $month, $year) : [];
-$listWaste = ($view === 'Waste' || $view === 'Printable') ? $service->getDetailedViewData('Waste', $reportType, $date, $month, $year) : [];
+$listSales = ($view === 'Sales' || $view === 'Printable') ? $service->getDetailedViewData('Sales', $reportType, $date, $month, $year, $provider_id, $current_user_id) : [];
+$listPurch = ($view === 'Receiving' || $view === 'Printable') ? $service->getDetailedViewData('Receiving', $reportType, $date, $month, $year, null, $current_user_id) : [];
+$listExp = ($view === 'Expenses' || $view === 'Printable') ? $service->getDetailedViewData('Expenses', $reportType, $date, $month, $year, null, $current_user_id) : [];
+$listWaste = ($view === 'Waste' || $view === 'Printable') ? $service->getDetailedViewData('Waste', $reportType, $date, $month, $year, null, $current_user_id) : [];
 
 // --- SUMMARY & CASH CALCULATION ---
 if (in_array($view, ['Summary', 'Printable', 'Dashboard'])) {
-    $cashSummary = $service->getCashSummary($reportType, $date, $month, $year);
+    $cashSummary = $service->getCashSummary($reportType, $date, $month, $year, $current_user_id);
     $remainingCash = $cashSummary['remaining_cash'];
     $cashSales = $cashSummary['cash_sales'];
     $collectedPayments = $cashSummary['collected_payments'];

@@ -126,8 +126,10 @@
                                     <div class="small text-muted"><?= date('M d, Y', strtotime($d['sale_date'])) ?></div>
                                 </td>
                                 <td>
-                                    <div class="fw-bold"><?= htmlspecialchars($d['client_name']) ?></div>
-                                    <div class="text-muted small">ID: <?= $d['client_id'] ?></div>
+                                    <a href="customer_details.php?id=<?= $d['client_id'] ?>&back=<?= urlencode($_SERVER['REQUEST_URI']) ?>" class="text-decoration-none">
+                                        <div class="fw-bold text-primary"><?= htmlspecialchars($d['client_name']) ?></div>
+                                        <div class="text-muted small">ID: <?= $d['client_id'] ?></div>
+                                    </a>
                                 </td>
                                 <td>
                                     <span class="badge bg-light text-dark border"><?= $d['debt_type'] ?: 'دين عام' ?></span>

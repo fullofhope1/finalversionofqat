@@ -275,10 +275,10 @@ $jsonCustomers = json_encode($customers);
             document.getElementById('i_type').value = data.id;
             document.getElementById('s_type').innerText = data.name;
             populateProviders(data.id);
-        } else if (step === 2) { // Provider/stock selected
-            document.getElementById('i_lid').value = data.type === 'manual' ? data.id : '';
-            document.getElementById('i_pid').value = data.type === 'momsi' ? data.id : '';
-            document.getElementById('i_status').value = data.type === 'momsi' ? 'Momsi' : 'Leftover';
+        } else if (step === 2) { // Provider/stock selected (Consolidated: Everything from leftovers table)
+            document.getElementById('i_lid').value = data.id;
+            document.getElementById('i_pid').value = ''; // Surplus is in leftovers table now, not purchases
+            document.getElementById('i_status').value = 'Leftover';
             document.getElementById('s_rawi').innerText = data.name;
             selectedStock = data; // Save full stock object
         } else if (step === 3) { // Customer selected
@@ -332,10 +332,8 @@ $jsonCustomers = json_encode($customers);
                 // Show unit count for unit-based stocks, weight for weight-based
                 const ut = p.unit_type || 'weight';
                 let qtyLabel;
-                if (ut === 'قبضة') {
-                    qtyLabel = `<small>قبضة × ${p.remaining_units}</small>`;
-                } else if (ut === 'قراطيس') {
-                    qtyLabel = `<small>قراطيس × ${p.remaining_units}</small>`;
+                if (ut !== 'weight') {
+                    qtyLabel = `<small>${ut} × ${p.remaining_units}</small>`;
                 } else {
                     qtyLabel = `<small>${p.remaining_kg} كجم</small>`;
                 }
@@ -358,7 +356,7 @@ $jsonCustomers = json_encode($customers);
         // When going to step 4, decide which step4 variant to show
         if (step === 4) {
             const ut = selectedStock ? (selectedStock.unit_type || 'weight') : 'weight';
-            const isUnits = (ut === 'قبضة' || ut === 'قراطيس');
+            const isUnits = (ut !== 'weight');
 
             document.querySelectorAll('.step-container').forEach(el => el.classList.remove('active'));
 
@@ -467,9 +465,11 @@ $jsonCustomers = json_encode($customers);
     }
 
     function saveNewCust() {
-        const name = document.getElementById('new_name').value;
-        const phone = document.getElementById('new_phone').value;
-        if (!name) return alert("الاسم مطلوب");
+        const name = document.getElementById('new_name').value.trim();
+        const phone = document.getElementById('new_phone').value.trim();
+        if (!name) return alert("الاسم مطلوب (Name is required)");
+        if (!phone) return alert("رقم الهاتف مطلوب (Phone is required)");
+        if (!/^\d{7,15}$/.test(phone)) return alert("رقم الهاتف غير صحيح - يجب أن يكون أرقاماً فقط (7-15 رقم)");
         const formData = new FormData();
         formData.append('name', name);
         formData.append('phone', phone);

@@ -1,5 +1,6 @@
 <?php
 require_once '../config/db.php';
+require_once '../includes/Autoloader.php';
 session_start();
 
 if (!isset($_SESSION['user_id'])) {
@@ -7,6 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    try {
         $expenseRepo = new ExpenseRepository($pdo);
         $depositRepo = new DepositRepository($pdo);
         $staffRepo = new StaffRepository($pdo);
@@ -27,7 +29,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $service->addDeposit($data);
         header("Location: ../expenses.php?success=1");
+        exit;
     } catch (Exception $e) {
         header("Location: ../expenses.php?error=" . urlencode($e->getMessage()));
+        exit;
     }
 }

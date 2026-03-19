@@ -1,6 +1,7 @@
 <?php
 // requests/update_staff.php
 require '../config/db.php';
+require_once '../includes/Autoloader.php';
 require_once '../includes/require_auth.php';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {

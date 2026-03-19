@@ -31,13 +31,15 @@ $salesStmt->execute([$id]);
 $sales = $salesStmt->fetchAll();
 
 // Determine back URL
-$backUrl = ($back === 'debts') ? 'debts.php' : 'customers.php';
+$backUrl = 'customers.php';
+if ($back === 'debts') $backUrl = 'debts.php';
+elseif (str_contains($back, '.php')) $backUrl = $back;
 ?>
 
 <div class="row mb-3">
     <div class="col-md-12 d-flex justify-content-between align-items-center">
-        <a href="<?= $backUrl ?>" class="btn btn-secondary">&larr; <?= ($back === 'debts') ? 'العودة لإدارة الديون' : 'العودة للقائمة' ?></a>
-        <a href="customer_statement.php?id=<?= $id ?>" class="btn btn-dark shadow-sm">
+        <a href="<?= htmlspecialchars($backUrl) ?>" class="btn btn-secondary">&larr; عودة</a>
+        <a href="customer_statement.php?id=<?= $id ?>&back=<?= urlencode($backUrl) ?>" class="btn btn-dark shadow-sm">
             <i class="fas fa-print me-2"></i> كشف حساب
         </a>
     </div>
@@ -75,6 +77,14 @@ $backUrl = ($back === 'debts') ? 'debts.php' : 'customers.php';
                         <input type="number" step="1" class="form-control" name="amount" required
                             max="<?= $customer['total_debt'] ?>" min="1"
                             placeholder="أدخل مبلغ السداد">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">طريقة السداد</label>
+                        <select class="form-select shadow-sm" name="payment_method">
+                            <option value="Cash">نقدي</option>
+                            <option value="Transfer">حوالة</option>
+                        </select>
                     </div>
 
                     <div class="mb-3">
@@ -129,6 +139,7 @@ $backUrl = ($back === 'debts') ? 'debts.php' : 'customers.php';
                         <tr>
                             <th>التاريخ</th>
                             <th>المبلغ</th>
+                            <th>الطريقة</th>
                             <th>ملاحظة</th>
                         </tr>
                     </thead>
@@ -137,6 +148,7 @@ $backUrl = ($back === 'debts') ? 'debts.php' : 'customers.php';
                             <tr>
                                 <td><?= $p['payment_date'] ?></td>
                                 <td class="text-success fw-bold"><?= number_format($p['amount']) ?></td>
+                                <td><?= ($p['payment_method'] ?? 'Cash') === 'Transfer' ? '<span class="badge bg-info">حوالة</span>' : '<span class="badge bg-secondary">نقدي</span>' ?></td>
                                 <td><?= htmlspecialchars($p['note']) ?></td>
                             </tr>
                         <?php endforeach; ?>

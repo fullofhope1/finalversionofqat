@@ -15,11 +15,17 @@ class ReportRepository extends BaseRepository
         }
     }
 
-    public function getTotals($reportType, $date, $month, $year)
+    public function getTotals($reportType, $date, $month, $year, $userId = null)
     {
         list($whereSales, $paramsSales) = $this->getWhereAndParams($reportType, $date, $month, $year, 'sale_date');
         list($wherePurch, $paramsPurch) = $this->getWhereAndParams($reportType, $date, $month, $year, 'purchase_date');
         list($whereExp, $paramsExp) = $this->getWhereAndParams($reportType, $date, $month, $year, 'expense_date');
+
+        // Filter expenses by the current user to separate admin/super_admin data
+        if ($userId !== null) {
+            $whereExp .= " AND created_by = ?";
+            $paramsExp[] = $userId;
+        }
 
         $totalSales = $this->fetchColumn("SELECT SUM(price) FROM sales $whereSales", $paramsSales) ?: 0;
         $totalPurchases = $this->fetchColumn("SELECT SUM(net_cost) FROM purchases $wherePurch", $paramsPurch) ?: 0;
@@ -89,9 +95,16 @@ class ReportRepository extends BaseRepository
         return $this->fetchAll($sql, $params);
     }
 
-    public function getExpensesList($reportType, $date, $month, $year)
+    public function getExpensesList($reportType, $date, $month, $year, $userId = null)
     {
         list($where, $params) = $this->getWhereAndParams($reportType, $date, $month, $year, 'e.expense_date');
+
+        // Filter expenses by user to separate admin/super_admin data
+        if ($userId !== null) {
+            $where .= " AND e.created_by = ?";
+            $params[] = $userId;
+        }
+
         $sql = "SELECT e.*, s.name as staff_name FROM expenses e LEFT JOIN staff s ON e.staff_id = s.id $where ORDER BY e.id DESC";
         return $this->fetchAll($sql, $params);
     }
@@ -108,7 +121,7 @@ class ReportRepository extends BaseRepository
         return $this->fetchAll($sql, $params);
     }
 
-    public function getCashSummary($reportType, $date, $month, $year)
+    public function getCashSummary($reportType, $date, $month, $year, $userId = null)
     {
         list($whereSales, $paramsSales) = $this->getWhereAndParams($reportType, $date, $month, $year, 'sale_date');
         list($wherePay, $paramsPay) = $this->getWhereAndParams($reportType, $date, $month, $year, 'payment_date');
@@ -129,18 +142,54 @@ class ReportRepository extends BaseRepository
         $collectedPayments = $this->fetchColumn("SELECT SUM(amount) FROM payments $wherePay", $paramsPay) ?: 0;
         $depositsYER = $this->fetchColumn("SELECT SUM(amount) FROM qat_deposits $whereDep AND currency = 'YER'", $paramsDep) ?: 0;
         $cashRefunds = $this->fetchColumn("SELECT SUM(amount) FROM refunds r $whereRef AND refund_type = 'Cash'", $paramsRef) ?: 0;
+        $debtRefunds = $this->fetchColumn("SELECT SUM(amount) FROM refunds r $whereRef AND refund_type = 'Debt'", $paramsRef) ?: 0;
 
-        // Total expenses (needed for cash calc)
+        try {
+            $collectedCash = $this->fetchColumn("SELECT SUM(amount) FROM payments $wherePay AND payment_method = 'Cash'", $paramsPay) ?: 0;
+            $collectedTransfer = $this->fetchColumn("SELECT SUM(amount) FROM payments $wherePay AND payment_method = 'Transfer'", $paramsPay) ?: 0;
+        } catch (PDOException $e) {
+            // Fallback if column doesn't exist yet
+            $collectedCash = $this->fetchColumn("SELECT SUM(amount) FROM payments $wherePay", $paramsPay) ?: 0;
+            $collectedTransfer = 0;
+        }
+
+        // Total expenses
         list($whereExp, $paramsExp) = $this->getWhereAndParams($reportType, $date, $month, $year, 'expense_date');
+        if ($userId !== null) {
+            $whereExp .= " AND staff_id = ?";
+            $paramsExp[] = $userId;
+        }
         $totalExpenses = $this->fetchColumn("SELECT SUM(amount) FROM expenses $whereExp", $paramsExp) ?: 0;
 
         return [
             'cash_sales' => $cashSales,
-            'collected_payments' => $collectedPayments,
+            'collected_payments' => $collectedCash + $collectedTransfer,
+            'wasel_cash' => $collectedCash,
+            'wasel_transfer' => $collectedTransfer,
             'deposits_yer' => $depositsYER,
             'cash_refunds' => $cashRefunds,
+            'debt_refunds' => $debtRefunds,
             'total_expenses' => $totalExpenses
         ];
+    }
+
+    public function getWasteStats($reportType, $date, $month, $year)
+    {
+        list($where, $params) = $this->getWhereAndParams($reportType, $date, $month, $year, 'source_date');
+        $sql = "SELECT SUM(weight_kg) as total_weight, SUM(quantity_units) as total_units 
+                FROM leftovers 
+                $where AND status IN ('Dropped', 'Auto_Dropped')";
+        return $this->fetchOne($sql, $params);
+    }
+
+    public function getDetailedPayments($reportType, $date, $month, $year)
+    {
+        list($where, $params) = $this->getWhereAndParams($reportType, $date, $month, $year, 'payment_date');
+        $sql = "SELECT p.*, c.name as customer_name 
+                FROM payments p 
+                JOIN customers c ON p.customer_id = c.id 
+                $where ORDER BY p.payment_date DESC";
+        return $this->fetchAll($sql, $params);
     }
 
     public function getSalesBreakdown($reportType, $date, $month, $year)
@@ -150,7 +199,7 @@ class ReportRepository extends BaseRepository
                 SUM(CASE WHEN payment_method = 'Cash' THEN price ELSE 0 END) as cash_sales,
                 SUM(CASE WHEN payment_method = 'Debt' THEN price ELSE 0 END) as debt_sales,
                 SUM(CASE WHEN payment_method NOT IN ('Cash', 'Debt') THEN price ELSE 0 END) as transfer_sales,
-                SUM(CASE WHEN qat_status = 'Momsi' THEN price ELSE 0 END) as momsi_sales,
+                SUM(CASE WHEN qat_status IN ('Momsi', 'Leftover') THEN price ELSE 0 END) as momsi_sales,
                 COUNT(*) as total_invoices
                 FROM sales $where";
         return $this->fetchOne($sql, $params);

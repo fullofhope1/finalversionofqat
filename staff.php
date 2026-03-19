@@ -76,14 +76,15 @@ $allWithdrawals = $service->getTotalWithdrawals($user_id);
                         <tbody>
                             <?php foreach ($staffMembers as $s):
                                 $hasLimit = ($s['withdrawal_limit'] !== null);
-                                $rem = $hasLimit ? (($s['withdrawal_limit'] ?: 0) - ($s['total_withdrawn'] ?: 0)) : null;
+                                $withdrawn = $s['current_withdrawals'] ?? 0;
+                                $rem = $hasLimit ? (($s['withdrawal_limit'] ?: 0) - $withdrawn) : null;
                                 $rowClass = ($hasLimit && $rem <= 0) ? 'table-danger' : '';
                             ?>
                                 <tr class="<?= $rowClass ?>">
                                     <td><?= htmlspecialchars($s['name']) ?></td>
                                     <td><?= number_format($s['daily_salary'] ?: 0) ?></td>
                                     <td><?= $hasLimit ? number_format($s['withdrawal_limit']) : '<span class="text-muted">بدون سقف</span>' ?></td>
-                                    <td class="fw-bold text-danger"><?= number_format($s['total_withdrawn'] ?: 0) ?></td>
+                                    <td class="fw-bold text-danger"><?= number_format($withdrawn) ?></td>
                                     <td class="fw-bold">
                                         <?php if ($hasLimit): ?>
                                             <span class="<?= $rem > 0 ? 'text-success' : 'text-danger' ?>"><?= number_format($rem) ?></span>

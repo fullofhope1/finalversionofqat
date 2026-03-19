@@ -175,9 +175,12 @@ $business_name = "القادري و ماجد - لأجود أنواع القات"
                 class="btn btn-success btn-lg px-4">
                 <i class="fab fa-whatsapp me-2"></i>إرسال الكشف (واتساب)
             </a>
-            <button onclick="history.back()" class="btn btn-secondary btn-lg px-4">
+            <?php
+            $back = $_GET['back'] ?? "customer_details.php?id=$id";
+            ?>
+            <a href="<?= htmlspecialchars($back) ?>" class="btn btn-secondary btn-lg px-4">
                 <i class="fas fa-arrow-right me-2"></i>عودة
-            </button>
+            </a>
         </div>
 
         <div class="statement-header d-flex justify-content-between align-items-center">

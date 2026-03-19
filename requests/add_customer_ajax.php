@@ -5,7 +5,7 @@ require_once '../includes/require_auth.php';
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = $_POST['name'];
+    $name = $_POST['name'] ?? '';
     $phone = $_POST['phone'] ?? '';
 
     try {

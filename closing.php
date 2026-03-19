@@ -13,7 +13,7 @@ $stmtOldest = $pdo->query("SELECT MIN(d) FROM (
 ) as unclosed_dates");
 $oldestUnclosed = $stmtOldest->fetchColumn() ?: date('Y-m-d', strtotime('-1 day'));
 
-$today = $_GET['date'] ?? $oldestUnclosed;
+$today = $_GET['date'] ?? date('Y-m-d');
 $realToday = date('Y-m-d');
 $isClosingToday = ($today === $realToday);
 
@@ -21,15 +21,15 @@ $types = $pdo->query("SELECT * FROM qat_types")->fetchAll();
 
 $preview = [];
 foreach ($types as $t) {
-    // 1. Total Purchased on selection date (Fresh logic)
-    $stmtBuy = $pdo->prepare("SELECT SUM(quantity_kg) as bought_kg, SUM(received_units) as bought_units FROM purchases WHERE qat_type_id = ? AND purchase_date = ? AND status != 'Closed'");
+    // 1. Total Purchased up to selection date (Fresh logic)
+    $stmtBuy = $pdo->prepare("SELECT SUM(quantity_kg) as bought_kg, SUM(received_units) as bought_units FROM purchases WHERE qat_type_id = ? AND purchase_date <= ? AND status != 'Closed'");
     $stmtBuy->execute([$t['id'], $today]);
     $buyData = $stmtBuy->fetch(PDO::FETCH_ASSOC);
     $boughtKg = $buyData['bought_kg'] ?: 0;
     $boughtUnits = $buyData['bought_units'] ?: 0;
 
-    // 2. Total Sold from these specific active purchases
-    $stmtPIDs = $pdo->prepare("SELECT id FROM purchases WHERE qat_type_id = ? AND purchase_date = ? AND status != 'Closed'");
+    // 2. All PIDs for active purchases up to this date
+    $stmtPIDs = $pdo->prepare("SELECT id FROM purchases WHERE qat_type_id = ? AND purchase_date <= ? AND status != 'Closed'");
     $stmtPIDs->execute([$t['id'], $today]);
     $pids = $stmtPIDs->fetchAll(PDO::FETCH_COLUMN);
 
@@ -72,7 +72,7 @@ foreach ($types as $t) {
 }
 
 // 3. Count Unpaid Daily Debts that will be rolled over (due_date <= target date)
-$stmtDebt = $pdo->prepare("SELECT COUNT(*) as count, SUM(price - paid_amount - COALESCE(refund_amount,0)) as total FROM sales WHERE due_date <= ? AND payment_method = 'Debt' AND debt_type = 'Daily' AND is_paid = 0");
+$stmtDebt = $pdo->prepare("SELECT COUNT(*) as count, SUM(price - paid_amount - COALESCE(refund_amount,0)) as total FROM sales WHERE (due_date <= ? OR due_date IS NULL) AND payment_method = 'Debt' AND (debt_type = 'Daily' OR debt_type IS NULL OR debt_type = '') AND is_paid = 0");
 $stmtDebt->execute([$today]);
 $debtStats = $stmtDebt->fetch();
 $totalLeftoversCount = 0;

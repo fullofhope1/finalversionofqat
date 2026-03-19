@@ -163,7 +163,7 @@ $custJson = json_encode($customers);
                     <div class="step-panel" id="sp2">
                         <div class="mb-3">
                             <label class="form-label fw-bold"><i class="fas fa-coins me-1 text-warning"></i> المبلغ <span class="text-danger">*</span></label>
-                            <input type="number" name="amount" id="refundAmount" class="form-control form-control-lg" step="1" min="1" required placeholder="0">
+                            <input type="number" name="amount" id="refundAmount" class="form-control form-control-lg" step="1" min="1" placeholder="0">
                             <div class="text-danger small mt-1" id="amountError"></div>
                         </div>
 
@@ -193,7 +193,8 @@ $custJson = json_encode($customers);
 
                         <div class="mb-3">
                             <label class="form-label fw-bold"><i class="fas fa-comment me-1 text-warning"></i> السبب <span class="text-danger">*</span></label>
-                            <textarea name="reason" class="form-control" rows="3" required placeholder="مثال: الجودة كانت سيئة، تعويض عن 1 كجم..."></textarea>
+                            <textarea name="reason" id="refundReason" class="form-control" rows="3" placeholder="مثال: الجودة كانت سيئة، تعويض عن 1 كجم..."></textarea>
+                            <div class="text-danger small mt-1" id="reasonError"></div>
                         </div>
 
                         <div class="d-flex gap-2">
@@ -205,88 +206,89 @@ $custJson = json_encode($customers);
                             </button>
                         </div>
                     </div>
-
-                    <!-- Step 3: Confirm -->
-                    <div class="step-panel" id="sp3">
-                        <div class="card bg-warning-subtle border-warning mb-4">
-                            <div class="card-body">
-                                <h6 class="fw-bold text-warning-emphasis mb-3"><i class="fas fa-check-circle me-2"></i> مراجعة العملية</h6>
-                                <table class="table table-sm mb-0">
-                                    <tr>
-                                        <td class="text-muted fw-bold">الزبون</td>
-                                        <td id="rev_cust">—</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="text-muted fw-bold">نوع العملية</td>
-                                        <td id="rev_type">—</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="text-muted fw-bold">المبلغ</td>
-                                        <td id="rev_amount" class="fw-bold text-danger fs-5">—</td>
-                                    </tr>
-                                </table>
-                            </div>
-                        </div>
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-outline-secondary w-50 py-3 fw-bold" onclick="goRefundStep(2)">
-                                <i class="fas fa-arrow-right me-2"></i> رجوع
-                            </button>
-                            <button type="submit" class="btn btn-dark w-50 py-3 fw-bold">
-                                <i class="fas fa-check-circle me-2"></i> تنفيذ العملية
-                            </button>
-                        </div>
-                    </div>
-                </form>
             </div>
-        </div>
-    </div>
 
-    <!-- RECENT OPERATIONS -->
-    <div class="col-md-6 mb-4">
-        <div class="card shadow-sm border-0 h-100" style="border-radius: 20px; overflow: hidden;">
-            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="fas fa-history me-2"></i> العمليات الأخيرة</h5>
-                <span class="badge bg-warning text-dark"><?= count($recentRefunds) ?></span>
-            </div>
-            <div class="card-body p-3">
-                <input type="text" id="recentSearch" class="form-control recent-search mb-3" placeholder="🔍 بحث في العمليات...">
-                <div style="max-height: 520px; overflow-y: auto;">
-                    <table class="table table-hover mb-0 align-middle" id="recentTable">
-                        <thead class="table-light">
+            <!-- Step 3: Confirm -->
+            <div class="step-panel" id="sp3">
+                <div class="card bg-warning-subtle border-warning mb-4">
+                    <div class="card-body">
+                        <h6 class="fw-bold text-warning-emphasis mb-3"><i class="fas fa-check-circle me-2"></i> مراجعة العملية</h6>
+                        <table class="table table-sm mb-0">
                             <tr>
-                                <th>الزبون</th>
-                                <th>المبلغ</th>
-                                <th>النوع</th>
-                                <th>السبب</th>
+                                <td class="text-muted fw-bold">الزبون</td>
+                                <td id="rev_cust">—</td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (empty($recentRefunds)): ?>
-                                <tr>
-                                    <td colspan="4" class="text-muted py-5 text-center"><i class="fas fa-inbox fs-1 d-block mb-2 opacity-25"></i>لا توجد عمليات تعويض حديثة.</td>
-                                </tr>
-                            <?php else: ?>
-                                <?php foreach ($recentRefunds as $r): ?>
-                                    <tr>
-                                        <td class="fw-bold"><?= htmlspecialchars($r['cust_name']) ?></td>
-                                        <td class="text-danger fw-bold"><?= number_format($r['amount']) ?></td>
-                                        <td>
-                                            <?php if ($r['refund_type'] == 'Debt'): ?>
-                                                <span class="badge bg-warning text-dark">خصم دين</span>
-                                            <?php else: ?>
-                                                <span class="badge bg-secondary">نقدي</span>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td class="small text-muted"><?= htmlspecialchars($r['reason']) ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
+                            <tr>
+                                <td class="text-muted fw-bold">نوع العملية</td>
+                                <td id="rev_type">—</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted fw-bold">المبلغ</td>
+                                <td id="rev_amount" class="fw-bold text-danger fs-5">—</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary w-50 py-3 fw-bold" onclick="goRefundStep(2)">
+                        <i class="fas fa-arrow-right me-2"></i> رجوع
+                    </button>
+                    <button type="submit" class="btn btn-dark w-50 py-3 fw-bold">
+                        <i class="fas fa-check-circle me-2"></i> تنفيذ العملية
+                    </button>
                 </div>
             </div>
+            </form>
         </div>
     </div>
+</div>
+
+<!-- RECENT OPERATIONS -->
+<div class="col-md-6 mb-4">
+    <div class="card shadow-sm border-0 h-100" style="border-radius: 20px; overflow: hidden;">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-history me-2"></i> العمليات الأخيرة</h5>
+            <span class="badge bg-warning text-dark"><?= count($recentRefunds) ?></span>
+        </div>
+        <div class="card-body p-3">
+            <input type="text" id="recentSearch" class="form-control recent-search mb-3" placeholder="🔍 بحث في العمليات...">
+            <div style="max-height: 520px; overflow-y: auto;">
+                <table class="table table-hover mb-0 align-middle" id="recentTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>الزبون</th>
+                            <th>المبلغ</th>
+                            <th>النوع</th>
+                            <th>السبب</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($recentRefunds)): ?>
+                            <tr>
+                                <td colspan="4" class="text-muted py-5 text-center"><i class="fas fa-inbox fs-1 d-block mb-2 opacity-25"></i>لا توجد عمليات تعويض حديثة.</td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($recentRefunds as $r): ?>
+                                <tr>
+                                    <td class="fw-bold"><?= htmlspecialchars($r['cust_name']) ?></td>
+                                    <td class="text-danger fw-bold"><?= number_format($r['amount']) ?></td>
+                                    <td>
+                                        <?php if ($r['refund_type'] == 'Debt'): ?>
+                                            <span class="badge bg-warning text-dark">خصم دين</span>
+                                        <?php else: ?>
+                                            <span class="badge bg-secondary">نقدي</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="small text-muted"><?= htmlspecialchars($r['reason']) ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 </div>
 
 <script>
@@ -327,9 +329,11 @@ $custJson = json_encode($customers);
         document.getElementById('custDropdown').style.display = 'none';
         document.getElementById('selectedCustDisplay').style.display = 'block';
         document.getElementById('scd_name').textContent = c.name;
-        document.getElementById('scd_debt').textContent = Number(c.total_debt).toLocaleString();
+
+        const debt = parseFloat(c.total_debt) || 0;
+        document.getElementById('scd_debt').textContent = debt.toLocaleString();
         document.getElementById('step1Next').disabled = false;
-        selectedDebt = parseFloat(c.total_debt) || 0;
+        selectedDebt = debt;
         selectedCustName = c.name;
     }
 
@@ -342,27 +346,46 @@ $custJson = json_encode($customers);
 
     function goRefundStep(step) {
         if (step === 3) {
-            const amount = parseFloat(document.getElementById('refundAmount').value) || 0;
-            const refundType = document.querySelector('input[name="refund_type"]:checked').value;
+            const amountInput = document.getElementById('refundAmount');
+            const amount = parseFloat(amountInput.value) || 0;
+            const refundTypeElem = document.querySelector('input[name="refund_type"]:checked');
+            const refundType = refundTypeElem ? refundTypeElem.value : 'Debt';
+            const reasonInput = document.getElementById('refundReason');
+            const reason = reasonInput.value.trim();
+
+            let valid = true;
             if (amount <= 0) {
                 document.getElementById('amountError').innerText = 'يرجى إدخال مبلغ أكبر من صفر';
-                return;
-            }
-            if (refundType === 'Debt' && amount > selectedDebt) {
+                valid = false;
+            } else if (refundType === 'Debt' && amount > selectedDebt) {
                 document.getElementById('amountError').innerText = `⚠ المبلغ (${amount.toLocaleString()}) أكبر من دين الزبون (${selectedDebt.toLocaleString()})`;
-                return;
+                valid = false;
+            } else {
+                document.getElementById('amountError').innerText = '';
             }
-            document.getElementById('amountError').innerText = '';
-            document.getElementById('rev_cust').textContent = selectedCustName;
+
+            if (!reason) {
+                document.getElementById('reasonError').innerText = 'يرجى إدخال سبب العملية';
+                valid = false;
+            } else {
+                document.getElementById('reasonError').innerText = '';
+            }
+
+            if (!valid) return;
+
+            document.getElementById('rev_cust').textContent = selectedCustName || '—';
             document.getElementById('rev_type').textContent = refundType === 'Debt' ? 'خصم من الدين' : 'استرجاع نقدي';
             document.getElementById('rev_amount').textContent = amount.toLocaleString() + ' ريال';
         }
         [1, 2, 3].forEach(i => {
-            document.getElementById('sp' + i).classList.toggle('active', i === step);
-            const ind = document.getElementById('ind' + i);
-            ind.classList.remove('active', 'done');
-            if (i < step) ind.classList.add('done');
-            if (i === step) ind.classList.add('active');
+            const panel = document.getElementById('sp' + i);
+            const indicator = document.getElementById('ind' + i);
+            if (panel) panel.classList.toggle('active', i === step);
+            if (indicator) {
+                indicator.classList.remove('active', 'done');
+                if (i < step) indicator.classList.add('done');
+                if (i === step) indicator.classList.add('active');
+            }
         });
     }
 

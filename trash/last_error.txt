@@ -1,0 +1,7 @@
+SQLSTATE[23000]: Integrity constraint violation: 1452 Cannot add or update a child row: a foreign key constraint fails (`qat_erp`.`refunds`, CONSTRAINT `refunds_ibfk_1` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`))
+#0 C:\xampp\htdocs\qat\includes\classes\BaseRepository.php(84): PDOStatement->execute()
+#1 C:\xampp\htdocs\qat\includes\classes\BaseRepository.php(54): BaseRepository->prepareAndExecute('INSERT INTO ref...', Array)
+#2 C:\xampp\htdocs\qat\includes\classes\RefundRepository.php(20): BaseRepository->execute('INSERT INTO ref...', Array)
+#3 C:\xampp\htdocs\qat\includes\classes\RefundService.php(29): RefundRepository->create(Array)
+#4 C:\xampp\htdocs\qat\diag_error_capture_v3.php(12): RefundService->processRefund(Array, 33)
+#5 {main}

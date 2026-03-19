@@ -1,6 +1,7 @@
 <?php
 // requests/process_new_refund.php
 require '../config/db.php';
+require_once '../includes/Autoloader.php';
 session_start();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -31,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ];
 
     try {
-        if ($service->processRefund($data)) {
+        if ($service->processRefund($data, $user_id)) {
             header("Location: ../refunds.php?success=1");
             exit;
         }

@@ -31,17 +31,16 @@ class LeftoverRepository extends BaseRepository
         return (int)$this->fetchColumn($sql, [$id]) ?: 0;
     }
 
-    public function getTransferredLeftovers($date = null)
+    public function getTransferredLeftovers()
     {
-        $date = $date ?: date('Y-m-d');
         $sql = "SELECT l.*, t.name as type_name, prov.name as provider_name 
                 FROM leftovers l 
                 JOIN qat_types t ON l.qat_type_id = t.id 
                 LEFT JOIN purchases p ON l.purchase_id = p.id
                 LEFT JOIN providers prov ON p.provider_id = prov.id
-                WHERE l.status = 'Transferred_Next_Day' AND l.sale_date = ?
-                ORDER BY l.source_date DESC";
-        return $this->fetchAll($sql, [$date]);
+                WHERE l.status IN ('Transferred_Next_Day', 'Auto_Momsi')
+                ORDER BY l.source_date DESC, l.id DESC";
+        return $this->fetchAll($sql);
     }
 
     public function getMomsiStock()
