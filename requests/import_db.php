@@ -28,34 +28,26 @@ try {
         throw new Exception("خطأ أثناء رفع الملف (Error: " . $file['error'] . ")");
     }
 
-    // Check if exec is enabled
-    if (!function_exists('exec')) {
-        throw new Exception("عذراً، وظيفة (exec) معطلة على استضافتك الحالية لأسباب أمنية. يرجى استيراد البيانات من خلال لوحة التحكم (phpMyAdmin).");
-    }
-
-    // Use global DB variables from config/db.php
-    global $dbname, $username, $password, $servername;
-    $db_name = $dbname;
-    $db_user = $username;
-    $db_pass = $password;
-    $db_host = $servername;
-
     $tmp_file = $file['tmp_name'];
 
-    // Import using mysql command line
-    $is_windows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
-    $mysql_path = $is_windows ? 'c:\xampp\mysql\bin\mysql.exe' : 'mysql';
+    // Import using Pure PHP PDO
+    $sqlContent = file_get_contents($tmp_file);
+    if ($sqlContent === false) {
+        throw new Exception("لا يمكن قراءة الملف المرفوع.");
+    }
 
-    $host_param = ($db_host && $db_host !== 'localhost') ? "-h $db_host " : "-h 127.0.0.1 ";
-    $pass_param = $db_pass ? "-p\"$db_pass\"" : "";
+    try {
+        // Enforce emulate prepares so we can run multiple statements in one query if driver supports it
+        $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
 
-    $command = "\"$mysql_path\" $host_param-u $db_user $pass_param $db_name < \"$tmp_file\" 2>&1";
+        $pdo->exec("SET FOREIGN_KEY_CHECKS=0;");
 
-    exec($command, $output, $return_var);
+        // Execute the entire dump
+        $pdo->exec($sqlContent);
 
-    if ($return_var !== 0) {
-        $error_msg = implode(" ", $output);
-        throw new Exception("فشل في استعادة البيانات (Error Code: $return_var). تأكد من أن الملف صالح. التفاصيل: $error_msg");
+        $pdo->exec("SET FOREIGN_KEY_CHECKS=1;");
+    } catch (PDOException $e) {
+        throw new Exception("فشل في استعادة البيانات. تأكد من أن الملف صالح. تفاصيل الخطأ: " . $e->getMessage());
     }
 
     echo json_encode(['success' => true, 'message' => 'تم استعادة قاعدة البيانات بنجاح! سيتم إعادة تحميل الصفحة...']);

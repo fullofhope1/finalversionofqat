@@ -20,34 +20,52 @@ if (isset($_GET['action']) && $_GET['action'] === 'list') {
 }
 
 try {
-    // Check if exec is enabled
-    if (!function_exists('exec')) {
-        throw new Exception("عذراً، وظيفة (exec) معطلة على استضافتك الحالية لأسباب أمنية. يرجى أخذ النسخة من لوحة التحكم (phpMyAdmin).");
-    }
-
-    // Use global DB variables from config/db.php
-    global $dbname, $username, $password, $servername;
-    $db_name = $dbname;
-    $db_user = $username;
-    $db_pass = $password;
-    $db_host = $servername;
-
     $backup_file = '../backups/backup_' . date('Y-m-d_H-i-s') . '.sql';
 
-    // 1. Create SQL dump
-    $is_windows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
-    $mysqldump_path = $is_windows ? 'c:\xampp\mysql\bin\mysqldump.exe' : 'mysqldump';
+    // 1. Create SQL dump via Pure PHP
+    $tables = [];
+    $stmt = $pdo->query("SHOW TABLES");
+    while ($row = $stmt->fetch(PDO::FETCH_NUM)) {
+        $tables[] = $row[0];
+    }
 
-    $host_param = ($db_host && $db_host !== 'localhost') ? "-h $db_host " : "-h 127.0.0.1 ";
-    $pass_param = $db_pass ? "-p\"$db_pass\"" : "";
+    $sqlDump = "-- Database Backup (Pure PHP)\n-- Generated: " . date('Y-m-d H:i:s') . "\n\n";
+    $sqlDump .= "SET FOREIGN_KEY_CHECKS=0;\nSET TIME_ZONE='+00:00';\n\n";
 
-    $command = "\"$mysqldump_path\" $host_param-u $db_user $pass_param $db_name > \"$backup_file\" 2>&1";
+    foreach ($tables as $table) {
+        $stmtCreate = $pdo->query("SHOW CREATE TABLE `$table`");
+        $createRow = $stmtCreate->fetch(PDO::FETCH_NUM);
+        $sqlDump .= "DROP TABLE IF EXISTS `$table`;\n";
+        $sqlDump .= $createRow[1] . ";\n\n";
 
-    exec($command, $output, $return_var);
+        $stmtRows = $pdo->query("SELECT * FROM `$table`");
+        $rows = $stmtRows->fetchAll(PDO::FETCH_ASSOC);
 
-    if ($return_var !== 0) {
-        $error_msg = implode(" ", $output);
-        throw new Exception("فشل في إنشاء نسخة احتياطية (Error Code: $return_var). $error_msg");
+        if (count($rows) > 0) {
+            $sqlDump .= "INSERT INTO `$table` VALUES ";
+            $values = [];
+            foreach ($rows as $row) {
+                $rowVals = [];
+                foreach ($row as $val) {
+                    if ($val === null) {
+                        $rowVals[] = "NULL";
+                    } else {
+                        $val = addslashes($val);
+                        $val = str_replace(["\n", "\r"], ["\\n", "\\r"], $val);
+                        $rowVals[] = "'$val'";
+                    }
+                }
+                $values[] = "(" . implode(", ", $rowVals) . ")";
+            }
+            $sqlDump .= implode(",\n", $values) . ";\n\n";
+        }
+    }
+
+    $sqlDump .= "SET FOREIGN_KEY_CHECKS=1;\n";
+
+    // Write to file
+    if (file_put_contents($backup_file, $sqlDump) === false) {
+        throw new Exception("فشل في حفظ ملف النسخة الاحتياطية على الخادم (يُرجى التحقق من أذونات مجلد backups).");
     }
 
     // 2. Prepare Email
@@ -55,8 +73,7 @@ try {
     $subject = 'Database Backup - ' . date('Y-m-d H:i');
     $message = "Attached is the latest database backup from " . $_SERVER['HTTP_HOST'];
     $filename = basename($backup_file);
-    $content = file_get_contents($backup_file);
-    $content = chunk_split(base64_encode($content));
+    $content = chunk_split(base64_encode($sqlDump));
 
     // Boundary 
     $boundary = md5(time());
@@ -81,13 +98,12 @@ try {
     $body .= "--" . $boundary . "--";
 
     // 3. Send via mail()
-    // Note: Local XAMPP often needs SMTP configuration. We'll report if it failed but still succeeded locally.
     $mail_sent = @mail($to, $subject, $body, $headers);
 
     if ($mail_sent) {
         echo json_encode(['success' => true, 'message' => 'تم إنشاء النسخة وتنزيلها في المجلد، وتم إرسالها بنجاح إلى البريد الإلكتروني.']);
     } else {
-        echo json_encode(['success' => true, 'message' => 'تم إنشاء النسخة بنجاح في مجلد /backups، ولكن فشل إرسال الإيميل (تأكد من إعدادات SMTP في XAMPP).']);
+        echo json_encode(['success' => true, 'message' => 'تم إنشاء النسخة بنجاح في مجلد /backups، ولكن فشل إرسال الإيميل.']);
     }
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
