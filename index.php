@@ -41,6 +41,157 @@ if (!empty($freshProducts)) {
 
 ?>
 
+<!-- ==============================================
+     1. SPLASH SCREEN (PRELOADER)
+=============================================== -->
+<script>
+    document.body.classList.add('loading');
+</script>
+<style>
+    /* Prevent animations while loading */
+    body.loading .animate__animated {
+        animation-play-state: paused !important;
+    }
+
+    body.loading {
+        overflow: hidden;
+    }
+
+    #splash-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100vh;
+        background: linear-gradient(135deg, #091216, #16262e, #1c3642);
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        transition: opacity 0.8s cubic-bezier(0.25, 0.8, 0.25, 1), visibility 0.8s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    #splash-screen.fade-out {
+        opacity: 0;
+        visibility: hidden;
+        transform: scale(1.05);
+    }
+
+    .splash-logo-container {
+        position: relative;
+        margin-bottom: 2.5rem;
+    }
+
+    .splash-logo {
+        width: 150px;
+        height: 150px;
+        object-fit: cover;
+        border-radius: 50%;
+        border: 4px solid #ffd700;
+        box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+        animation: pulseLogo 2s infinite ease-in-out;
+        position: relative;
+        z-index: 2;
+    }
+
+    .splash-spinner {
+        position: absolute;
+        top: -15px;
+        left: -15px;
+        width: 180px;
+        height: 180px;
+        border-color: #ffd700 transparent #ffd700 transparent;
+        animation: spin 1.5s linear infinite;
+        z-index: 1;
+        opacity: 0.8;
+    }
+
+    .splash-title {
+        color: #ffffff;
+        font-family: 'Tajawal', sans-serif;
+        font-weight: 900;
+        font-size: 2.5rem;
+        letter-spacing: 2px;
+        text-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        margin-bottom: 0.5rem;
+        opacity: 0;
+        transform: translateY(20px);
+        animation: fadeInUpText 0.8s forwards 0.3s;
+    }
+
+    .splash-subtitle {
+        color: #ffd700;
+        font-family: 'Tajawal', sans-serif;
+        font-weight: bold;
+        font-size: 1.3rem;
+        letter-spacing: 1px;
+        opacity: 0;
+        transform: translateY(20px);
+        animation: fadeInUpText 0.8s forwards 0.6s;
+    }
+
+    @keyframes pulseLogo {
+        0% {
+            transform: scale(0.95);
+            box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.6);
+        }
+
+        50% {
+            transform: scale(1.02);
+            box-shadow: 0 0 25px 15px rgba(255, 215, 0, 0);
+        }
+
+        100% {
+            transform: scale(0.95);
+            box-shadow: 0 0 0 0 rgba(255, 215, 0, 0);
+        }
+    }
+
+    @keyframes fadeInUpText {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+</style>
+
+<div id="splash-screen">
+    <div class="splash-logo-container">
+        <div class="spinner-border splash-spinner" role="status"></div>
+        <img src="logo.jpg" alt="القادري لأجود أنواع القات" class="splash-logo">
+    </div>
+    <h1 class="splash-title">القادري ومـاجـد</h1>
+    <div class="splash-subtitle">لأجود أنواع القات</div>
+</div>
+
+<script>
+    window.addEventListener('load', function() {
+        // Enforce a minimum display time of 2.2 seconds for the cinematic effect
+        setTimeout(function() {
+            const splash = document.getElementById('splash-screen');
+            if (splash) {
+                splash.classList.add('fade-out');
+                // Remove the 'loading' class to kick off the entry animations
+                document.body.classList.remove('loading');
+
+                // Cleanup DOM after transition finishes
+                setTimeout(() => splash.remove(), 800);
+            }
+        }, 2200);
+    });
+</script>
+<!-- ============================================== -->
 
 <div class="row mb-4">
     <div class="col-12 text-center py-5">
