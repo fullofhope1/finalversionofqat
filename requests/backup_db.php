@@ -20,19 +20,34 @@ if (isset($_GET['action']) && $_GET['action'] === 'list') {
 }
 
 try {
-    $db_name = 'qat_erp';
-    $db_user = 'root';
-    $db_pass = '';
+    // Check if exec is enabled
+    if (!function_exists('exec')) {
+        throw new Exception("عذراً، وظيفة (exec) معطلة على استضافتك الحالية لأسباب أمنية. يرجى أخذ النسخة من لوحة التحكم (phpMyAdmin).");
+    }
+
+    // Use global DB variables from config/db.php
+    global $dbname, $username, $password, $servername;
+    $db_name = $dbname;
+    $db_user = $username;
+    $db_pass = $password;
+    $db_host = $servername;
+
     $backup_file = '../backups/backup_' . date('Y-m-d_H-i-s') . '.sql';
 
     // 1. Create SQL dump
-    $mysqldump_path = 'c:\xampp\mysql\bin\mysqldump.exe';
-    $command = "\"$mysqldump_path\" -u $db_user" . ($db_pass ? " -p$db_pass" : "") . " $db_name > \"$backup_file\"";
+    $is_windows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
+    $mysqldump_path = $is_windows ? 'c:\xampp\mysql\bin\mysqldump.exe' : 'mysqldump';
+
+    $host_param = ($db_host && $db_host !== 'localhost') ? "-h $db_host " : "-h 127.0.0.1 ";
+    $pass_param = $db_pass ? "-p\"$db_pass\"" : "";
+
+    $command = "\"$mysqldump_path\" $host_param-u $db_user $pass_param $db_name > \"$backup_file\" 2>&1";
 
     exec($command, $output, $return_var);
 
     if ($return_var !== 0) {
-        throw new Exception("فشل في إنشاء نسخة احتياطية (Error Code: $return_var)");
+        $error_msg = implode(" ", $output);
+        throw new Exception("فشل في إنشاء نسخة احتياطية (Error Code: $return_var). $error_msg");
     }
 
     // 2. Prepare Email
